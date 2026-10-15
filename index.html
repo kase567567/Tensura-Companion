@@ -1,0 +1,3104 @@
+if (!char) return '';
+            const hasStat = scaleStat && scaleStat !== 'NONE';
+            const hasDice = dmgDice && dmgDice.trim() !== '';
+            if (!hasStat && !hasDice) return '';
+
+            const statMod = hasStat ? getStatMod(char.stats[scaleStat]) : 0;
+            const prof = addProf ? getProfBonus(char.level) : 0;
+            const flat = parseInt(flatBonus) || 0;
+            const toHitMod = statMod + prof + flat;<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tensura Companion Tool - Great Sage HUD</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        rimuru: {
+                            dark: '#060a12',
+                            panel: '#0d1526',
+                            card: '#131e36',
+                            border: '#1e3a5f',
+                            cyan: '#00f2fe',
+                            blue: '#4facfe',
+                            gold: '#f59e0b',
+                            crimson: '#f43f5e'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #060a12;
+            color: #e2e8f0;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 242, 254, 0.08) 0%, transparent 50%),
+                linear-gradient(to bottom, #060a12, #09101d);
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #060a12; }
+        ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00f2fe; }
+
+        /* Great Sage HUD Aesthetics */
+        .sage-border {
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.06), inset 0 0 15px rgba(0, 242, 254, 0.03);
+        }
+        .sage-glow {
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+        }
+        .apex-unique-border {
+            border: 1px solid rgba(192, 132, 252, 0.5);
+            box-shadow: 0 0 18px rgba(168, 85, 247, 0.15), inset 0 0 12px rgba(168, 85, 247, 0.08);
+        }
+        .apex-ultimate-border {
+            border: 1px solid rgba(251, 191, 36, 0.65);
+            box-shadow: 0 0 22px rgba(245, 158, 11, 0.2), inset 0 0 15px rgba(244, 63, 94, 0.1);
+        }
+        .hud-label {
+            font-size: 0.65rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            font-weight: 700;
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-24 selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- STICKY TOP HEADER -->
+    <header class="sticky top-0 z-40 bg-rimuru-dark/95 backdrop-blur-md border-b border-sky-500/30 px-3 py-2.5">
+        <div class="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <!-- Brand & Campaign Room Pill -->
+            <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-700 flex items-center justify-center sage-glow border border-cyan-300/50 shrink-0">
+                    <i class="fa-solid fa-diamond text-white text-sm animate-pulse"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-1.5">
+                        <h1 class="text-sm font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-sky-400">RAPHAEL HUD</h1>
+                        <button onclick="openCampaignModal()" class="flex items-center space-x-1 text-[10px] font-mono bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded-md border border-cyan-500/50 transition" title="Change Campaign Join Code">
+                            <span id="cloudStatusDot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                            <span>ROOM:</span>
+                            <strong id="headerRoomCode" class="text-white">JURA-77</strong>
+                            <i class="fa-solid fa-pen-to-square text-[9px] ml-0.5 text-cyan-400"></i>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-400 tracking-wider uppercase">Voice of the World • Cloud Sync</p>
+                </div>
+            </div>
+
+            <!-- Character Switcher & Backup Tools -->
+            <div class="flex items-center space-x-1.5">
+                <select id="charSelect" onchange="switchCharacter(this.value)" class="bg-rimuru-panel border border-sky-500/40 text-xs text-cyan-100 font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-400 max-w-[140px] sm:max-w-[190px] truncate">
+                    <!-- Populated by JS -->
+                </select>
+                <button onclick="openCharModal()" class="w-8 h-8 rounded-lg bg-rimuru-panel border border-sky-500/30 flex items-center justify-center text-sky-300 hover:bg-sky-950 hover:border-cyan-400 transition" title="Manage Campaign Characters">
+                    <i class="fa-solid fa-user-plus text-xs"></i>
+                </button>
+                <button onclick="openCampaignModal()" class="w-8 h-8 rounded-lg bg-rimuru-panel border border-sky-500/30 flex items-center justify-center text-cyan-300 hover:bg-sky-950 hover:border-cyan-400 transition" title="Campaign Room & Cloud Info">
+                    <i class="fa-solid fa-tower-broadcast text-xs"></i>
+                </button>
+                <button onclick="openSettingsModal()" class="w-8 h-8 rounded-lg bg-rimuru-panel border border-sky-500/30 flex items-center justify-center text-sky-300 hover:bg-sky-950 hover:border-cyan-400 transition" title="JSON Export / Import">
+                    <i class="fa-solid fa-gear text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 max-w-4xl w-full mx-auto px-3 pt-3 space-y-4">
+
+        <!-- ALWAYS-VISIBLE CHARACTER IDENTITY & VITALS HUD -->
+        <section class="bg-rimuru-panel sage-border rounded-2xl p-3.5 sm:p-4 space-y-3.5 relative overflow-hidden">
+            <!-- Top Identity, Class & Level Auto-Scaler Row -->
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                <div class="space-y-1.5">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span id="hudEntityBadge" class="text-[10px] font-mono font-extrabold uppercase tracking-wider bg-cyan-950/90 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/40">PARTY PC</span>
+                        <span id="hudRace" class="text-[10px] font-bold uppercase tracking-wider bg-cyan-950/80 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/30">Demon Slime</span>
+                        
+                        <!-- Multiclass & Class Breakdown Button -->
+                        <button onclick="openClassModal()" class="flex items-center space-x-1.5 text-[10px] font-extrabold uppercase tracking-wider bg-indigo-950/90 hover:bg-indigo-900 text-indigo-200 px-2.5 py-0.5 rounded border border-indigo-500/50 transition shadow-sm" title="Manage Classes & Multiclass Levels">
+                            <i class="fa-solid fa-layer-group text-cyan-400 text-[9px]"></i>
+                            <span id="hudClassPillText">🔮 Mage 5</span>
+                            <i class="fa-solid fa-sliders text-[9px] text-indigo-400 ml-0.5"></i>
+                        </button>
+
+                        <!-- Total Level Display & Multiclass Level Up Button -->
+                        <div class="flex items-center bg-slate-900 border border-cyan-500/40 rounded px-1.5 py-0.5 space-x-1.5">
+                            <span class="text-[9px] font-mono font-bold text-cyan-400">TOTAL LVL</span>
+                            <span id="hudLevelDisplay" class="font-mono font-extrabold text-xs text-white px-0.5">5</span>
+                            <button onclick="openClassModal()" class="text-[9px] bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold px-1.5 py-0.2 rounded transition active:scale-95" title="Level Up or Add Multiclass!">
+                                +LVL / MULTI
+                            </button>
+                        </div>
+
+                        <span id="hudTierBadge" class="text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-950/80 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40">Tier 5</span>
+                    </div>
+                    <div class="flex flex-wrap items-baseline gap-2">
+                        <h2 id="hudCharName" class="text-lg sm:text-xl font-extrabold text-white tracking-tight">Rimuru Tempest</h2>
+                        <span id="hudNpcSubline" class="text-[11px] font-semibold text-amber-300 hidden"></span>
+                        <span id="hudClassSummary" class="text-[10px] font-mono text-slate-400">Hit Dice: 5d6 | Save DC: 16</span>
+                    </div>
+                </div>
+
+                <!-- Quick Combat Stats Bar (AC, 1-Tap Roll Init, Speed, Auto-Prof, Skill DC) -->
+                <div class="grid grid-cols-5 gap-1.5 w-full sm:w-auto">
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-2 py-1 text-center">
+                        <span class="hud-label block">AC</span>
+                        <input type="number" id="hudAc" onchange="updateVitalsField('ac', this.value)" class="w-10 bg-transparent text-center font-mono font-bold text-sm text-cyan-300 focus:outline-none" value="18">
+                    </div>
+
+                    <!-- Dedicated 1-Tap Initiative Roller Button -->
+                    <button onclick="rollInitiative()" class="bg-cyan-950/70 hover:bg-cyan-900/90 border border-cyan-400/50 rounded-xl px-2 py-1 text-center group active:scale-95 transition sage-glow" title="Click to Roll 1d20 + DEX Mod + Init Bonus">
+                        <span class="hud-label text-cyan-300 block flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-dice-d20 text-[9px] group-hover:rotate-90 transition"></i>
+                            <span>INIT</span>
+                        </span>
+                        <span id="hudInitBtnText" class="font-mono font-extrabold text-sm text-white block">+4</span>
+                    </button>
+
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-2 py-1 text-center">
+                        <span class="hud-label block">SPD</span>
+                        <input type="text" id="hudSpeed" onchange="updateVitalsField('speed', this.value)" class="w-11 bg-transparent text-center font-mono font-bold text-sm text-white focus:outline-none" value="35ft">
+                    </div>
+
+                    <div class="bg-slate-900/90 border border-cyan-500/30 rounded-xl px-2 py-1 text-center" title="Auto-Scaled by Character Level">
+                        <span class="hud-label text-cyan-400 block">PROF</span>
+                        <span id="hudProfDisplay" class="font-mono font-extrabold text-sm text-cyan-300 block">+3</span>
+                    </div>
+
+                    <div class="bg-slate-900/90 border border-purple-500/30 rounded-xl px-2 py-1 text-center" title="Skill / Spell Save DC (8 + Prof + Class Primary Mod)">
+                        <span class="hud-label text-purple-300 block">SAVE DC</span>
+                        <span id="hudSaveDcDisplay" class="font-mono font-extrabold text-sm text-purple-300 block">16</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vitals Grid: HP & Magicule Pool -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                
+                <!-- HEALTH (HP) TRACKER -->
+                <div class="bg-slate-900/80 border border-emerald-500/30 rounded-xl p-3 space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-1">
+                        <div class="flex items-center space-x-1.5">
+                            <i class="fa-solid fa-heart-pulse text-emerald-400 text-xs"></i>
+                            <span class="text-xs font-bold uppercase tracking-wider text-emerald-300">Vitality (HP)</span>
+                            <label class="flex items-center space-x-1 text-[9px] font-mono bg-emerald-950/70 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 cursor-pointer" title="Automatically calculate Max HP from 50 Base + Class Hit Die + Level + CON Mod">
+                                <input type="checkbox" id="autoHpToggle" onchange="toggleAutoHp(this.checked)" class="accent-emerald-400 rounded w-2.5 h-2.5" checked>
+                                <span>Auto-Scale</span>
+                            </label>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs font-mono">
+                            <span class="text-slate-400 text-[10px]" title="Flat Bonus HP from Skills/Items">+BONUS:</span>
+                            <input type="number" id="hpBonusInput" onchange="updateVitalsField('bonusHp', this.value)" class="w-10 bg-slate-950 border border-slate-700 rounded px-1 py-0.5 text-center text-emerald-300 font-bold" value="0">
+                            <span class="text-slate-400 text-[10px]">TEMP:</span>
+                            <input type="number" id="hpTempInput" onchange="updateVitalsField('tempHp', this.value)" class="w-10 bg-slate-950 border border-slate-700 rounded px-1 py-0.5 text-center text-amber-300 font-bold" value="0">
+                        </div>
+                    </div>
+
+                    <!-- HP Bar & Direct Numbers -->
+                    <div class="flex items-baseline justify-between">
+                        <div class="flex items-baseline space-x-1 font-mono">
+                            <input type="number" id="hpCurrInput" onchange="updateVitalsField('currHp', this.value)" class="w-16 bg-slate-950/80 border border-emerald-500/40 rounded-lg px-1.5 py-0.5 text-lg font-extrabold text-emerald-400 text-center focus:outline-none" value="85">
+                            <span class="text-slate-500 font-bold">/</span>
+                            <input type="number" id="hpMaxInput" onchange="updateVitalsField('maxHp', this.value)" class="w-16 bg-transparent border-b border-slate-700 text-sm font-bold text-slate-300 text-center focus:outline-none" value="85">
+                        </div>
+                        <span id="hpFormulaHint" class="text-[10px] font-mono text-slate-400">50 Base + Lvl/CON</span>
+                        <span id="hpPercentText" class="text-[11px] font-mono text-emerald-400">100%</span>
+                    </div>
+
+                    <div class="w-full bg-slate-950 rounded-full h-2.5 p-0.5 border border-slate-800 overflow-hidden">
+                        <div id="hpProgressBar" class="bg-gradient-to-r from-emerald-600 to-teal-400 h-full rounded-full transition-all duration-300" style="width: 100%"></div>
+                    </div>
+
+                    <!-- HP Adjust Controls -->
+                    <div class="flex items-center gap-1.5 pt-1">
+                        <button onclick="modifyHp(-5)" class="px-2 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-700/50 text-rose-300 rounded-lg text-xs font-mono font-bold active:scale-95">-5</button>
+                        <button onclick="modifyHp(-1)" class="px-2 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-700/50 text-rose-300 rounded-lg text-xs font-mono font-bold active:scale-95">-1</button>
+                        <input type="number" id="hpCustomDelta" placeholder="Amt" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-center font-mono text-white focus:outline-none focus:border-emerald-400">
+                        <button onclick="modifyHpCustom(-1)" class="px-2 py-1 bg-rose-600/20 border border-rose-500/40 text-rose-300 rounded-lg text-[10px] font-bold uppercase hover:bg-rose-600/30">Dmg</button>
+                        <button onclick="modifyHpCustom(1)" class="px-2 py-1 bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 rounded-lg text-[10px] font-bold uppercase hover:bg-emerald-600/30">Heal</button>
+                        <button onclick="modifyHp(1)" class="px-2 py-1 bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-700/50 text-emerald-300 rounded-lg text-xs font-mono font-bold active:scale-95">+1</button>
+                        <button onclick="modifyHp(5)" class="px-2 py-1 bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-700/50 text-emerald-300 rounded-lg text-xs font-mono font-bold active:scale-95">+5</button>
+                    </div>
+
+                    <!-- Rest & Death Saves Row -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-800/80 text-[10px]">
+                        <div class="flex items-center space-x-1.5">
+                            <button onclick="takeShortRest()" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 font-semibold transition">Short Rest</button>
+                            <button onclick="takeLongRest()" class="bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 px-2 py-0.5 rounded border border-emerald-500/40 font-bold transition">Long Rest</button>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-slate-400 font-semibold">Death Saves:</span>
+                            <div class="flex items-center space-x-1 text-emerald-400" title="Successes">
+                                <i class="fa-solid fa-heart text-[9px]"></i>
+                                <input type="checkbox" id="dsSucc1" onchange="saveDeathSaves()" class="accent-emerald-400 rounded">
+                                <input type="checkbox" id="dsSucc2" onchange="saveDeathSaves()" class="accent-emerald-400 rounded">
+                                <input type="checkbox" id="dsSucc3" onchange="saveDeathSaves()" class="accent-emerald-400 rounded">
+                            </div>
+                            <div class="flex items-center space-x-1 text-rose-400" title="Failures">
+                                <i class="fa-solid fa-skull text-[9px]"></i>
+                                <input type="checkbox" id="dsFail1" onchange="saveDeathSaves()" class="accent-rose-500 rounded">
+                                <input type="checkbox" id="dsFail2" onchange="saveDeathSaves()" class="accent-rose-500 rounded">
+                                <input type="checkbox" id="dsFail3" onchange="saveDeathSaves()" class="accent-rose-500 rounded">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MAGICULE POOL (MC) TRACKER -->
+                <div class="bg-slate-900/80 border border-cyan-500/30 rounded-xl p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-1.5">
+                            <i class="fa-solid fa-bolt-lightning text-cyan-400 text-xs"></i>
+                            <span class="text-xs font-bold uppercase tracking-wider text-cyan-300">Magicule Pool (MC)</span>
+                        </div>
+                        <div class="flex items-center space-x-1 text-[10px] font-mono">
+                            <span class="text-slate-400">UPKEEP/TURN:</span>
+                            <input type="number" id="mcUpkeepInput" onchange="updateVitalsField('upkeepMc', this.value)" class="w-14 bg-slate-950 border border-slate-700 rounded px-1 py-0.5 text-center text-purple-300 font-bold" value="50">
+                        </div>
+                    </div>
+
+                    <!-- MC Numbers -->
+                    <div class="flex items-baseline justify-between">
+                        <div class="flex items-baseline space-x-1 font-mono">
+                            <input type="number" id="mcCurrInput" onchange="updateVitalsField('currMc', this.value)" class="w-24 bg-slate-950/80 border border-cyan-500/40 rounded-lg px-1.5 py-0.5 text-lg font-extrabold text-cyan-300 text-center focus:outline-none" value="95000">
+                            <span class="text-slate-500 font-bold">/</span>
+                            <input type="number" id="mcMaxInput" onchange="updateVitalsField('maxMc', this.value)" class="w-24 bg-transparent border-b border-slate-700 text-sm font-bold text-slate-300 text-center focus:outline-none" value="100000">
+                        </div>
+                        <span id="mcPercentText" class="text-[11px] font-mono text-cyan-400">95%</span>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-slate-950 rounded-full h-2.5 p-0.5 border border-slate-800 overflow-hidden">
+                        <div id="mcProgressBar" class="bg-gradient-to-r from-blue-600 via-sky-400 to-cyan-300 h-full rounded-full transition-all duration-300" style="width: 95%"></div>
+                    </div>
+
+                    <!-- Quick Adjust Buttons -->
+                    <div class="grid grid-cols-5 gap-1 pt-1">
+                        <button onclick="modifyMc(-1000)" class="bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/50 text-rose-300 text-[11px] font-mono font-bold py-1 rounded-lg active:scale-95">-1k</button>
+                        <button onclick="modifyMc(-100)" class="bg-rose-950/50 hover:bg-rose-900/70 border border-rose-800/50 text-rose-300 text-[11px] font-mono font-bold py-1 rounded-lg active:scale-95">-100</button>
+                        <input type="number" id="mcCustomDelta" placeholder="Custom" class="bg-slate-950 border border-slate-800 rounded-lg px-1 py-1 text-[11px] text-center font-mono text-white focus:outline-none focus:border-cyan-400">
+                        <button onclick="modifyMc(100)" class="bg-cyan-950/50 hover:bg-cyan-900/70 border border-cyan-800/50 text-cyan-300 text-[11px] font-mono font-bold py-1 rounded-lg active:scale-95">+100</button>
+                        <button onclick="modifyMc(1000)" class="bg-cyan-950/50 hover:bg-cyan-900/70 border border-cyan-800/50 text-cyan-300 text-[11px] font-mono font-bold py-1 rounded-lg active:scale-95">+1k</button>
+                    </div>
+
+                    <!-- Custom MC Apply & Turn Upkeep -->
+                    <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-800/80 text-[10px]">
+                        <div class="flex space-x-1">
+                            <button onclick="modifyMcCustom(-1)" class="bg-rose-600/20 border border-rose-500/40 text-rose-300 px-2 py-0.5 rounded font-bold uppercase">Spend Custom</button>
+                            <button onclick="modifyMcCustom(1)" class="bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 px-2 py-0.5 rounded font-bold uppercase">Gain Custom</button>
+                        </div>
+                        <button onclick="deductTurnUpkeep()" class="bg-purple-950/80 hover:bg-purple-900 text-purple-300 px-2 py-0.5 rounded border border-purple-500/40 font-semibold flex items-center space-x-1">
+                            <i class="fa-solid fa-hourglass-half text-[9px]"></i>
+                            <span>Turn Upkeep</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Elemental Affinities & Next Level MC Growth Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 border border-slate-800/90 rounded-xl px-3 py-2 text-xs">
+                <div class="flex items-center space-x-2 flex-1 min-w-[200px]">
+                    <span class="hud-label text-sky-400 shrink-0"><i class="fa-solid fa-wand-sparkles mr-1"></i>Affinities:</span>
+                    <input type="text" id="affinitiesInput" onchange="updateVitalsField('affinities', this.value)" placeholder="e.g. Spatial, Void, Lightning, Water" class="w-full bg-transparent border-b border-slate-800 focus:border-cyan-400 text-xs text-slate-200 focus:outline-none py-0.5">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span id="nextLvlMcBadge" class="text-[10px] font-mono bg-cyan-950/80 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/30">Next Lvl Growth: +150 MC</span>
+                    <button onclick="switchTab('npcs')" class="text-[10px] font-mono font-bold bg-amber-950/90 hover:bg-amber-900 text-amber-200 px-2.5 py-0.5 rounded border border-amber-500/40 transition flex items-center space-x-1">
+                        <i class="fa-solid fa-crown text-[9px] text-amber-400"></i>
+                        <span>Named NPCs</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             TAB 1: D&D 5E ABILITY SCORES & SKILL CHECKS
+             ========================================== -->
+        <div id="tab-stats" class="tab-section space-y-4">
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-dice-d20 text-cyan-400 text-sm"></i>
+                        <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Core Ability Scores & Saves</h3>
+                    </div>
+                    <span class="text-[10px] text-slate-400">Tap Mod or Save to Roll 1d20</span>
+                </div>
+                <div id="abilityScoresGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5"></div>
+            </section>
+
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-scroll text-cyan-400 text-sm"></i>
+                        <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">D&D 5e Skill Checks</h3>
+                    </div>
+                    <div class="flex items-center space-x-2 text-[10px] text-slate-400">
+                        <span>Cycle Prof:</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">None</span>
+                        <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">Prof</span>
+                        <span class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/40">Expert (2x)</span>
+                    </div>
+                </div>
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                    <input type="text" id="dndSkillSearch" oninput="renderDndSkills()" placeholder="Filter D&D skills (e.g. Acrobatics, Perception, Stealth)..." class="w-full bg-slate-900/90 border border-slate-800 text-xs text-slate-200 pl-8 pr-3 py-2 rounded-xl focus:outline-none focus:border-cyan-400">
+                </div>
+                <div id="dndSkillsList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+            </section>
+        </div>
+
+        <!-- ==========================================
+             TAB 2: PERSONAL CHARACTER SKILL LEDGER
+             ========================================== -->
+        <div id="tab-skills" class="tab-section hidden space-y-4">
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-sm font-extrabold uppercase tracking-wider text-cyan-300 flex items-center space-x-2">
+                            <i class="fa-solid fa-microchip"></i>
+                            <span>Personal Skill Ledger (Acquired)</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-400">Skills inscribed onto <strong id="skillLedgerCharLabel" class="text-white">this character</strong> — or claim from World Compendium</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="switchTab('compendium'); switchCompendiumSubTab('skills');" class="bg-purple-950/90 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs px-3 py-2 rounded-xl flex items-center space-x-1.5 transition">
+                            <i class="fa-solid fa-book-atlas"></i>
+                            <span>Browse World Dex</span>
+                        </button>
+                        <button onclick="openSkillModal(null, 'personal')" class="bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-slate-950 font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center space-x-1.5 shadow-lg shadow-cyan-500/20 active:scale-95 transition">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Custom Skill</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tier Pill Filters -->
+                <div class="flex items-center space-x-1.5 overflow-x-auto pb-1">
+                    <button onclick="setSkillTierFilter('ALL')" id="filter-ALL" class="tier-pill px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-slate-950 shrink-0">All Tiers</button>
+                    <button onclick="setSkillTierFilter('Intrinsic')" id="filter-Intrinsic" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-emerald-300 border border-emerald-500/30 shrink-0">Intrinsic</button>
+                    <button onclick="setSkillTierFilter('Common')" id="filter-Common" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-sky-300 border border-sky-500/30 shrink-0">Common</button>
+                    <button onclick="setSkillTierFilter('Extra')" id="filter-Extra" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-cyan-300 border border-cyan-500/30 shrink-0">Extra</button>
+                    <button onclick="setSkillTierFilter('Unique')" id="filter-Unique" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-purple-300 border border-purple-500/40 shrink-0">★ Unique</button>
+                    <button onclick="setSkillTierFilter('Ultimate')" id="filter-Ultimate" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-amber-300 border border-amber-500/50 shrink-0">✦ Ultimate</button>
+                </div>
+
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                    <input type="text" id="tensuraSkillSearch" oninput="renderTensuraSkills()" placeholder="Search your character's acquired skills..." class="w-full bg-slate-900/90 border border-slate-800 text-xs text-slate-200 pl-8 pr-3 py-2 rounded-xl focus:outline-none focus:border-cyan-400">
+                </div>
+            </section>
+
+            <div id="tensuraSkillsContainer" class="space-y-3.5"></div>
+        </div>
+
+        <!-- ==========================================
+             TAB 3: PERSONAL INVENTORY & MONSTER HARVESTING
+             ========================================== -->
+        <div id="tab-inventory" class="tab-section hidden space-y-4">
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-coins text-amber-400 text-sm"></i>
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Personal Currency & Magisteel Treasury</h3>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div class="bg-slate-900/90 border border-amber-500/30 rounded-xl p-2.5">
+                        <span class="hud-label text-amber-300 block">Gold Coins (G)</span>
+                        <input type="number" id="invGold" onchange="updateCurrency('gold', this.value)" class="w-full bg-transparent font-mono font-bold text-base text-white focus:outline-none mt-1" value="450">
+                    </div>
+                    <div class="bg-slate-900/90 border border-cyan-500/30 rounded-xl p-2.5">
+                        <span class="hud-label text-cyan-300 block">Magisteel Ore</span>
+                        <input type="number" id="invMagisteel" onchange="updateCurrency('magisteel', this.value)" class="w-full bg-transparent font-mono font-bold text-base text-white focus:outline-none mt-1" value="12">
+                    </div>
+                    <div class="bg-slate-900/90 border border-purple-500/30 rounded-xl p-2.5">
+                        <span class="hud-label text-purple-300 block">Monster Cores</span>
+                        <input type="number" id="invCores" onchange="updateCurrency('cores', this.value)" class="w-full bg-transparent font-mono font-bold text-base text-white focus:outline-none mt-1" value="5">
+                    </div>
+                    <div class="bg-slate-900/90 border border-emerald-500/30 rounded-xl p-2.5">
+                        <span class="hud-label text-emerald-300 block">Hipokute Herbs</span>
+                        <input type="number" id="invHerbs" onchange="updateCurrency('herbs', this.value)" class="w-full bg-transparent font-mono font-bold text-base text-white focus:outline-none mt-1" value="18">
+                    </div>
+                </div>
+            </section>
+
+            <!-- TABLETOP KILLING-BLOW SOUL DEVOUR QUICK-AWARD -->
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-500/40">IN-PERSON TABLE ROLL</span>
+                            <h3 class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-cyan-300 flex items-center space-x-1.5">
+                                <i class="fa-solid fa-skull-crossbones"></i>
+                                <span>Killing Blow: Soul Devour Reward</span>
+                            </h3>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-0.5">
+                            Roll your physical die (`d4`, `d6`, `d8`, `d20`) at the table! Log the Magicules awarded by the DM below, or jump to the World Dex to claim the Skill you rolled.
+                        </p>
+                    </div>
+                    <button onclick="switchTab('compendium'); switchCompendiumSubTab('skills');" class="bg-purple-950/90 hover:bg-purple-900 border border-purple-500/50 text-purple-200 font-bold text-xs px-3 py-2 rounded-xl flex items-center space-x-1.5 transition">
+                        <i class="fa-solid fa-book-atlas"></i>
+                        <span>Claim Rolled Skill in World Dex</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-900/90 p-3 rounded-xl border border-slate-800 items-end">
+                    <div>
+                        <label class="hud-label text-slate-300 block mb-1">Base Killing Blow MC</label>
+                        <input type="number" id="devourBaseMc" placeholder="e.g. 150" class="w-full bg-slate-950 border border-cyan-500/40 rounded-xl px-3 py-2 text-xs font-mono font-bold text-cyan-300 focus:outline-none" value="150">
+                    </div>
+                    <div>
+                        <label class="hud-label text-amber-300 block mb-1">Extra Roll Surge MC (If No Skill / Dupe)</label>
+                        <input type="number" id="devourBonusMc" placeholder="0 if you got a skill" class="w-full bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-300 focus:outline-none" value="0">
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="claimSoulDevourMc(false)" class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs py-2 px-3 rounded-xl transition active:scale-95">
+                            + Gain to Curr MC
+                        </button>
+                        <button onclick="claimSoulDevourMc(true)" class="flex-1 bg-gradient-to-r from-purple-500 to-cyan-400 hover:from-purple-400 hover:to-cyan-300 text-slate-950 font-extrabold text-xs py-2 px-3 rounded-xl transition active:scale-95" title="Permanently increases Max & Current Magicules!">
+                            + Absorb to MAX MC
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Personal Equipment & Sub-Space Stomach Inventory -->
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-box-open text-cyan-400 text-sm"></i>
+                        <div>
+                            <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Sub-Space Stomach & Equipped Gear</h3>
+                            <p class="text-[10px] text-slate-400">Personal inventory carried by this character</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="switchTab('compendium'); switchCompendiumSubTab('items');" class="bg-amber-950/80 hover:bg-amber-900 border border-amber-500/40 text-amber-300 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center space-x-1">
+                            <i class="fa-solid fa-treasure-chest text-[10px]"></i>
+                            <span>World Item Ledger</span>
+                        </button>
+                        <button onclick="openItemModal(null, 'personal')" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs px-3 py-1.5 rounded-xl flex items-center space-x-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>Add Personal Item</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="inventoryListContainer" class="space-y-2.5"></div>
+            </section>
+        </div>
+
+        <!-- ==========================================
+             TAB 4: CAMPAIGN WORLD COMPENDIUM (MASTER SKILL & ITEM LEDGER)
+             ========================================== -->
+        <div id="tab-compendium" class="tab-section hidden space-y-4">
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">SHARED CAMPAIGN ARCHIVE</span>
+                            <span id="compendiumRoomBadge" class="text-[10px] font-mono text-amber-300">ROOM: JURA-77</span>
+                        </div>
+                        <h3 class="text-base font-extrabold text-white mt-1">Voice of the World: Master Compendium</h3>
+                        <p class="text-xs text-slate-400">DM & Players can forge custom campaign Skills & Items here. Players can 1-tap claim them directly to their character sheet!</p>
+                    </div>
+                    <!-- Sub-Tab Switcher -->
+                    <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                        <button onclick="switchCompendiumSubTab('skills')" id="compSubBtn-skills" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-cyan-500 text-slate-950 transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-wand-sparkles"></i>
+                            <span>Master Skill Dex</span>
+                        </button>
+                        <button onclick="switchCompendiumSubTab('items')" id="compSubBtn-items" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Master Item Ledger</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB A: MASTER SKILL COMPENDIUM -->
+                <div id="compendium-skills-view" class="space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center space-x-1.5 overflow-x-auto pb-1">
+                            <button onclick="setCompSkillTierFilter('ALL')" id="cfilter-ALL" class="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-cyan-400 text-slate-950 shrink-0">All Tiers</button>
+                            <button onclick="setCompSkillTierFilter('Intrinsic')" id="cfilter-Intrinsic" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-emerald-300 border border-emerald-500/30 shrink-0">Intrinsic</button>
+                            <button onclick="setCompSkillTierFilter('Common')" id="cfilter-Common" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-sky-300 border border-sky-500/30 shrink-0">Common</button>
+                            <button onclick="setCompSkillTierFilter('Extra')" id="cfilter-Extra" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-cyan-300 border border-cyan-500/30 shrink-0">Extra</button>
+                            <button onclick="setCompSkillTierFilter('Unique')" id="cfilter-Unique" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-purple-300 border border-purple-500/40 shrink-0">★ Unique</button>
+                            <button onclick="setCompSkillTierFilter('Ultimate')" id="cfilter-Ultimate" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-amber-300 border border-amber-500/50 shrink-0">✦ Ultimate</button>
+                        </div>
+                        <button onclick="openSkillModal(null, 'compendium')" class="bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-slate-950 font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center space-x-1.5 shadow-lg">
+                            <i class="fa-solid fa-hammer"></i>
+                            <span>Forge Campaign Skill</span>
+                        </button>
+                    </div>
+
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                        <input type="text" id="compSkillSearch" oninput="renderCompendiumSkills()" placeholder="Search Master Campaign Skills (e.g. Lizard Scales, Predator, Herculean Strength, Janus)..." class="w-full bg-slate-900/90 border border-slate-800 text-xs text-slate-200 pl-8 pr-3 py-2 rounded-xl focus:outline-none focus:border-cyan-400">
+                    </div>
+
+                    <div id="compendiumSkillsContainer" class="space-y-3.5 pt-1"></div>
+                </div>
+
+                <!-- SUB-TAB B: MASTER ITEM & EQUIPMENT COMPENDIUM -->
+                <div id="compendium-items-view" class="hidden space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center space-x-1.5 overflow-x-auto pb-1">
+                            <button onclick="setCompItemCatFilter('ALL')" id="icfilter-ALL" class="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-amber-400 text-slate-950 shrink-0">All Items</button>
+                            <button onclick="setCompItemCatFilter('Weapon')" id="icfilter-Weapon" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-700 shrink-0">Weapons</button>
+                            <button onclick="setCompItemCatFilter('Armor')" id="icfilter-Armor" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-700 shrink-0">Armor</button>
+                            <button onclick="setCompItemCatFilter('Potion/Consumable')" id="icfilter-Potion/Consumable" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-700 shrink-0">Potions</button>
+                            <button onclick="setCompItemCatFilter('Material/Core')" id="icfilter-Material/Core" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-700 shrink-0">Materials/Cores</button>
+                            <button onclick="setCompItemCatFilter('Artifact')" id="icfilter-Artifact" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-700 shrink-0">Artifacts</button>
+                        </div>
+                        <button onclick="openItemModal(null, 'compendium')" class="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center space-x-1.5 shadow-lg">
+                            <i class="fa-solid fa-anvil"></i>
+                            <span>Forge Campaign Item</span>
+                        </button>
+                    </div>
+
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                        <input type="text" id="compItemSearch" oninput="renderCompendiumItems()" placeholder="Search Master Campaign Items (e.g. Magisteel, Full Potion, Charybdis, Demon Steel)..." class="w-full bg-slate-900/90 border border-slate-800 text-xs text-slate-200 pl-8 pr-3 py-2 rounded-xl focus:outline-none focus:border-amber-400">
+                    </div>
+
+                    <div id="compendiumItemsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ==========================================
+             TAB 5: PARTY ROSTER (CAMPAIGN CHARACTERS)
+             ========================================== -->
+        <div id="tab-party" class="tab-section hidden space-y-4">
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-users-viewfinder text-cyan-400"></i>
+                            <h3 class="text-sm font-extrabold uppercase tracking-wider text-white">Campaign Party Roster</h3>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">All characters synced to Campaign Room <strong id="partyRoomLabel" class="text-cyan-300 font-mono">JURA-77</strong>. Switch or inspect any party member!</p>
+                    </div>
+                    <button onclick="openCharModal()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center space-x-1.5">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>New Party Member</span>
+                    </button>
+                </div>
+
+                <div id="partyRosterContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+            </section>
+        </div>
+
+        <!-- ==========================================
+             TAB 6: NAMED SUBORDINATES & STORY NPCS (PLAYABLE SHEETS)
+             ========================================== -->
+        <div id="tab-npcs" class="tab-section hidden space-y-4">
+            <section class="bg-rimuru-panel sage-border rounded-2xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/40">SOUL CORRIDOR • FULL PLAYABLE SHEETS</span>
+                            <span id="npcRoomBadge" class="text-[10px] font-mono text-cyan-300">ROOM: JURA-77</span>
+                        </div>
+                        <h3 class="text-base font-extrabold text-white mt-1">Named Subordinates & Story NPCs</h3>
+                        <p class="text-xs text-slate-400">Every Follower & NPC is built with a full playable character sheet! Click <strong>"Assume HUD"</strong> on any NPC to control their HP, Magicules, 5e Stats, Skills, and Inventory.</p>
+                    </div>
+                    <button onclick="openNpcModal(null)" class="bg-gradient-to-r from-amber-400 to-cyan-400 hover:from-amber-300 hover:to-cyan-300 text-slate-950 font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center space-x-1.5 shadow-lg active:scale-95 transition">
+                        <i class="fa-solid fa-crown"></i>
+                        <span>Name Creature / Create NPC Sheet</span>
+                    </button>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center space-x-1.5 overflow-x-auto pb-1">
+                        <button onclick="setNpcFilter('ALL')" id="npcfilter-ALL" class="px-3 py-1 rounded-lg text-xs font-extrabold bg-cyan-400 text-slate-950 shrink-0">All NPC Sheets</button>
+                        <button onclick="setNpcFilter('Named Subordinate')" id="npcfilter-Named Subordinate" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-amber-300 border border-amber-500/40 shrink-0">👑 Named Subordinates</button>
+                        <button onclick="setNpcFilter('Story Ally')" id="npcfilter-Story Ally" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-emerald-300 border border-emerald-500/40 shrink-0">🛡️ Story Allies</button>
+                        <button onclick="setNpcFilter('Neutral / Faction')" id="npcfilter-Neutral / Faction" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-sky-300 border border-sky-500/40 shrink-0">⚖️ Neutral / Faction</button>
+                        <button onclick="setNpcFilter('Rival / Threat')" id="npcfilter-Rival / Threat" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-rose-300 border border-rose-500/40 shrink-0">⚔️ Rivals & Threats</button>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                    <input type="text" id="npcSearchInput" oninput="renderNpcs()" placeholder="Search Playable NPCs by name, class, species, namer, or notes..." class="w-full bg-slate-900/90 border border-slate-800 text-xs text-slate-200 pl-8 pr-3 py-2 rounded-xl focus:outline-none focus:border-cyan-400">
+                </div>
+
+                <div id="npcsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1"></div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- GREAT SAGE FLOATING DICE ROLLER TOAST -->
+    <div id="sageToast" class="fixed bottom-20 right-3 left-3 sm:left-auto sm:w-96 z-50 hidden transform transition-all duration-300">
+        <div class="bg-slate-950/95 backdrop-blur-xl border-2 border-cyan-400/80 rounded-2xl p-3.5 sage-glow shadow-2xl">
+            <div class="flex items-center justify-between border-b border-cyan-500/30 pb-1.5 mb-2">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-diamond text-cyan-400 text-xs animate-spin"></i>
+                    <span class="text-[11px] font-mono font-extrabold tracking-widest text-cyan-300">《 GREAT SAGE NOTICE 》</span>
+                </div>
+                <button onclick="closeSageToast()" class="text-slate-400 hover:text-white text-xs">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="sageToastBody" class="text-xs text-slate-200 space-y-1"></div>
+        </div>
+    </div>
+
+    <!-- FIXED 6-TAB MOBILE BOTTOM NAVIGATION BAR -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-rimuru-dark/95 backdrop-blur-lg border-t border-sky-500/30 px-1 py-1.5">
+        <div class="max-w-xl mx-auto grid grid-cols-6 gap-1">
+            <button onclick="switchTab('stats')" id="nav-stats" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-cyan-300 bg-cyan-950/60 border border-cyan-500/40 transition">
+                <i class="fa-solid fa-dice-d20 text-xs mb-0.5"></i>
+                <span class="text-[9px] font-extrabold uppercase tracking-tight">5e Stats</span>
+            </button>
+            <button onclick="switchTab('skills')" id="nav-skills" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-microchip text-xs mb-0.5"></i>
+                <span class="text-[9px] font-bold uppercase tracking-tight">My Skills</span>
+            </button>
+            <button onclick="switchTab('inventory')" id="nav-inventory" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-box-open text-xs mb-0.5"></i>
+                <span class="text-[9px] font-bold uppercase tracking-tight">Stomach</span>
+            </button>
+            <button onclick="switchTab('compendium')" id="nav-compendium" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-book-atlas text-xs mb-0.5"></i>
+                <span class="text-[9px] font-bold uppercase tracking-tight">World Dex</span>
+            </button>
+            <button onclick="switchTab('party')" id="nav-party" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-users text-xs mb-0.5"></i>
+                <span class="text-[9px] font-bold uppercase tracking-tight">Party</span>
+            </button>
+            <button onclick="switchTab('npcs')" id="nav-npcs" class="flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-crown text-xs mb-0.5"></i>
+                <span class="text-[9px] font-bold uppercase tracking-tight">NPCs</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ==========================================
+         MODAL 1: CREATE / EDIT SKILL (STANDARD & APEX TEMPLATES)
+         ========================================== -->
+    <div id="skillModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 overflow-y-auto">
+        <div class="bg-rimuru-panel sage-border rounded-2xl max-w-lg w-full p-4 space-y-3 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div>
+                    <span id="skillModalTargetBadge" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">Personal Skill</span>
+                    <h3 class="text-sm font-extrabold uppercase tracking-wider text-white mt-1">Inscribe / Edit Tensura Skill</h3>
+                </div>
+                <button onclick="closeSkillModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <input type="hidden" id="editSkillId">
+            <input type="hidden" id="editSkillScope" value="personal">
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div class="sm:col-span-2">
+                    <label class="hud-label block mb-1">Skill Name</label>
+                    <input type="text" id="skillNameInput" placeholder="e.g. Black Lightning, Predator" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold">
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Skill Tier</label>
+                    <select id="skillTierInput" onchange="toggleSkillModalTemplate()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-cyan-300">
+                        <option value="Intrinsic">Intrinsic</option>
+                        <option value="Common">Common</option>
+                        <option value="Extra" selected>Extra</option>
+                        <option value="Unique">★ Unique</option>
+                        <option value="Ultimate">✦ Ultimate</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                    <label class="hud-label block mb-1">Activation Type</label>
+                    <select id="skillTypeInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white">
+                        <option value="Active">Active</option>
+                        <option value="Passive">Passive</option>
+                        <option value="Toggle / Aura">Toggle / Aura</option>
+                        <option value="Reaction">Reaction</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Quick-Cast Cost (MC)</label>
+                    <input type="number" id="skillMcNumberInput" value="100" min="0" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-cyan-300 font-bold">
+                </div>
+            </div>
+
+            <!-- Roll Scaling Configuration -->
+            <div class="bg-slate-900/90 border border-cyan-500/30 rounded-xl p-2.5 space-y-2">
+                <span class="hud-label text-cyan-300 block">Attack & Damage Roll Scaling (Optional)</span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                        <label class="text-[10px] text-slate-400 block">Scale Stat</label>
+                        <select id="skillScaleStatInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-bold">
+                            <option value="NONE">None</option>
+                            <option value="STR">STR</option>
+                            <option value="DEX">DEX</option>
+                            <option value="CON">CON</option>
+                            <option value="INT">INT</option>
+                            <option value="WIS">WIS</option>
+                            <option value="CHA">CHA</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block">Add Prof?</label>
+                        <select id="skillAddProfInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-cyan-300 font-bold">
+                            <option value="true" selected>Yes (+Prof)</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block">Damage Dice</label>
+                        <input type="text" id="skillDmgDiceInput" placeholder="e.g. 3d8" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-amber-300">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block">Flat Bonus</label>
+                        <input type="number" id="skillFlatBonusInput" value="0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-white">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Standard Tier Fields (Intrinsic, Common, Extra) -->
+            <div id="standardSkillFields" class="space-y-2.5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                        <label class="hud-label block mb-1">Magicule Cost & Upkeep Notes</label>
+                        <input type="text" id="skillCostTextInput" placeholder="e.g. 100 MC (20 MC/turn)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="hud-label block mb-1">Elemental / Conceptual Affinity</label>
+                        <input type="text" id="skillAffinityInput" placeholder="e.g. Dark Flame / Spatial" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Mechanical Effect & Range</label>
+                    <textarea id="skillEffectInput" rows="2" placeholder="Describe range, save DC, or combat effect..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-xs text-white"></textarea>
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Mastery Level & Evolution Catalyst</label>
+                    <input type="text" id="skillEvolutionInput" placeholder="e.g. Evolves into Black Flame Manipulation" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white">
+                </div>
+            </div>
+
+            <!-- Apex Tier Fields (Unique & Ultimate) -->
+            <div id="apexSkillFields" class="hidden space-y-2.5">
+                <div>
+                    <label class="hud-label text-purple-300 block mb-1">Soul Origin / Catalyst</label>
+                    <input type="text" id="apexOriginInput" placeholder="e.g. Born from unwavering resolve to protect allies" class="w-full bg-slate-950 border border-purple-500/40 rounded-xl px-3 py-1.5 text-xs text-white">
+                </div>
+                <div>
+                    <label class="hud-label text-cyan-300 block mb-1">Core Passive Authority</label>
+                    <input type="text" id="apexPassiveInput" placeholder="e.g. Thought Acceleration (Advantage on DEX saves)" class="w-full bg-slate-950 border border-cyan-500/40 rounded-xl px-3 py-1.5 text-xs text-white">
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="hud-label text-sky-300">Bundled Sub-Skills (Multi-Authority)</span>
+                        <button type="button" onclick="addSubSkillRow()" class="text-[10px] font-bold bg-purple-950 hover:bg-purple-900 text-purple-200 px-2 py-0.5 rounded border border-purple-500/40">+ Add Sub-Skill</button>
+                    </div>
+                    <div id="subSkillsRowsContainer" class="space-y-2"></div>
+                </div>
+                <div>
+                    <label class="hud-label text-amber-300 block mb-1">Apex Trump Card / Awakening Condition</label>
+                    <textarea id="apexTrumpInput" rows="2" placeholder="Ultimate authority or overdrive effect..." class="w-full bg-slate-950 border border-amber-500/40 rounded-xl p-2 text-xs text-white"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button onclick="closeSkillModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">Cancel</button>
+                <button onclick="saveSkillFromModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-400 text-slate-950 text-xs font-extrabold">Save Skill</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL 2: CREATE / EDIT ITEM OR WEAPON
+         ========================================== -->
+    <div id="itemModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 overflow-y-auto">
+        <div class="bg-rimuru-panel sage-border rounded-2xl max-w-md w-full p-4 space-y-3 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div>
+                    <span id="itemModalTargetBadge" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/40">Stomach Item</span>
+                    <h3 id="itemModalTitle" class="text-sm font-extrabold uppercase tracking-wider text-white mt-1">Forge / Add Item</h3>
+                </div>
+                <button onclick="closeItemModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <input type="hidden" id="editItemId">
+            <input type="hidden" id="editItemScope" value="personal">
+
+            <div class="grid grid-cols-3 gap-2">
+                <div class="col-span-2">
+                    <label class="hud-label block mb-1">Item Name</label>
+                    <input type="text" id="itemNameInput" placeholder="e.g. Magisteel Katana" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold">
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Qty</label>
+                    <input type="number" id="itemQtyInput" value="1" min="1" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="hud-label block mb-1">Category</label>
+                    <select id="itemCatInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white">
+                        <option value="Weapon">Weapon</option>
+                        <option value="Armor">Armor</option>
+                        <option value="Potion/Consumable">Potion/Consumable</option>
+                        <option value="Material/Core">Material/Core</option>
+                        <option value="Artifact">Artifact</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Tensura Grade</label>
+                    <select id="itemGradeInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-amber-300 font-bold">
+                        <option value="Normal">Normal</option>
+                        <option value="Rare">Rare</option>
+                        <option value="Unique">Unique Grade</option>
+                        <option value="Legend">Legend Grade</option>
+                        <option value="God / Mythical">God / Mythical</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Weapon / Combat Scaling -->
+            <div class="bg-slate-900/90 border border-amber-500/30 rounded-xl p-2.5 space-y-2">
+                <span class="hud-label text-amber-300 block">Weapon Attack & Damage Scaling (Optional)</span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                        <label class="text-[10px] text-slate-400 block">Scale Stat</label>
+                        <select id="itemScaleStatInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-bold">
+                            <option value="NONE">None</option>
+                            <option value="STR">STR</option>
+                            <option value="DEX">DEX</option>
+                            <option value="CON">CON</option>
+                            <option value="INT">INT</option>
+                            <option value="WIS">WIS</option>
+                            <option value="CHA">CHA</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block">Proficient?</label>
+                        <select id="itemAddProfInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-cyan-300 font-bold">
+                            <option value="true" selected>Yes (+Prof)</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block">Damage Dice</label>
+                        <input type="text" id="itemDmgDiceInput" placeholder="1d8" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-white">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block">Magic Bonus</label>
+                        <input type="number" id="itemFlatBonusInput" value="0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-white">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="hud-label block mb-1">Description & Special Properties</label>
+                <textarea id="itemDescInput" rows="3" placeholder="Effects, AC bonus, or lore..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button onclick="closeItemModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">Cancel</button>
+                <button onclick="saveItemFromModal()" class="px-4 py-2 rounded-xl bg-amber-400 text-slate-950 text-xs font-extrabold">Save Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL 3: CREATE / EDIT PLAYABLE NPC / NAMED SUBORDINATE
+         ========================================== -->
+    <div id="npcModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 overflow-y-auto">
+        <div class="bg-rimuru-panel sage-border rounded-2xl max-w-lg w-full p-4 space-y-3 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div>
+                    <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/40">Full Playable NPC Sheet</span>
+                    <h3 id="npcModalTitle" class="text-sm font-extrabold uppercase tracking-wider text-white mt-1">Name Subordinate or Create NPC Sheet</h3>
+                </div>
+                <button onclick="closeNpcModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <input type="hidden" id="editNpcId">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                    <label class="hud-label block mb-1">NPC / Subordinate Name</label>
+                    <input type="text" id="npcNameInput" placeholder="e.g. Ranga, Benimaru, Gobta" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold">
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Title / Epithet</label>
+                    <input type="text" id="npcTitleInput" placeholder="e.g. Tempest Starwolf, Flare Lord" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-cyan-300">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                    <label class="hud-label block mb-1">Category</label>
+                    <select id="npcCategoryInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-amber-300">
+                        <option value="Named Subordinate">👑 Named Subordinate</option>
+                        <option value="Story Ally">🛡️ Story Ally</option>
+                        <option value="Neutral / Faction">⚖️ Neutral / Faction</option>
+                        <option value="Rival / Threat">⚔️ Rival / Threat</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Species / Evolution</label>
+                    <input type="text" id="npcRaceInput" placeholder="e.g. Tempest Starwolf" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                </div>
+                <div>
+                    <label class="hud-label block mb-1">Named By / Master</label>
+                    <input type="text" id="npcNamerInput" placeholder="e.g. Rimuru Tempest" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                <div class="col-span-2 sm:col-span-1">
+                    <label class="hud-label text-indigo-300 block mb-1">Starting Class</label>
+                    <select id="npcRoleInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-bold text-indigo-200">
+                        <option value="Fighter">⚔️ Fighter (d10)</option>
+                        <option value="Tank">🛡️ Tank (d12)</option>
+                        <option value="Ranger">🏹 Ranger (d10)</option>
+                        <option value="Mage">🔮 Mage (d6)</option>
+                        <option value="Support">✨ Support (d8)</option>
+                        <option value="Beast">🐾 Magic Beast (d10)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="hud-label text-cyan-300 block mb-1">Starting Level</label>
+                    <input type="number" id="npcLevelInput" min="1" max="20" value="4" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white font-bold">
+                </div>
+                <div>
+                    <label class="hud-label text-cyan-300 block mb-1">Max Magicules</label>
+                    <input type="number" id="npcMcInput" value="8500" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-cyan-300">
+                </div>
+                <div>
+                    <label class="hud-label text-amber-300 block mb-1">Naming Cost (MC)</label>
+                    <input type="number" id="npcNamingCostInput" value="0" placeholder="0 MC" title="Optional: Deduct this many Magicules from the currently active character when creating/naming!" class="w-full bg-slate-950 border border-amber-500/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-amber-300">
+                </div>
+            </div>
+
+            <!-- Starting Core Ability Scores -->
+            <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 space-y-1.5">
+                <span class="hud-label text-sky-300 block">Starting Ability Scores (Can also be edited directly on the HUD once assumed)</span>
+                <div class="grid grid-cols-6 gap-1.5 text-center">
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400">STR</span>
+                        <input type="number" id="npcStrInput" value="14" class="w-full bg-slate-950 border border-slate-700 rounded py-1 text-center font-mono text-xs text-white font-bold">
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400">DEX</span>
+                        <input type="number" id="npcDexInput" value="14" class="w-full bg-slate-950 border border-slate-700 rounded py-1 text-center font-mono text-xs text-white font-bold">
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400">CON</span>
+                        <input type="number" id="npcConInput" value="14" class="w-full bg-slate-950 border border-slate-700 rounded py-1 text-center font-mono text-xs text-white font-bold">
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400">INT</span>
+                        <input type="number" id="npcIntInput" value="12" class="w-full bg-slate-950 border border-slate-700 rounded py-1 text-center font-mono text-xs text-white font-bold">
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400">WIS</span>
+                        <input type="number" id="npcWisInput" value="12" class="w-full bg-slate-950 border border-slate-700 rounded py-1 text-center font-mono text-xs text-white font-bold">
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400">CHA</span>
+                        <input type="number" id="npcChaInput" value="10" class="w-full bg-slate-950 border border-slate-700 rounded py-1 text-center font-mono text-xs text-white font-bold">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="hud-label block mb-1">Soul Corridor Notes / Lore / Behavior</label>
+                <textarea id="npcNotesInput" rows="2" placeholder="e.g. Hides in master's shadow; fiercely loyal. Assumes vanguard in combat." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button onclick="closeNpcModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">Cancel</button>
+                <button onclick="saveNpcFromModal(false)" class="px-3.5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">Save NPC</button>
+                <button onclick="saveNpcFromModal(true)" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-cyan-400 text-slate-950 text-xs font-extrabold">Save & Assume HUD</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL 4: CHARACTER MANAGER
+         ========================================== -->
+    <div id="charModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3">
+        <div class="bg-rimuru-panel sage-border rounded-2xl max-w-md w-full p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-extrabold uppercase tracking-wider text-cyan-300">Create / Manage Character</h3>
+                <button onclick="closeCharModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-2.5">
+                <div>
+                    <label class="hud-label block mb-1">Character Name</label>
+                    <input type="text" id="newCharName" placeholder="e.g. Gobta, Shuna, Custom Hero" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="hud-label block mb-1">Species / Race</label>
+                        <input type="text" id="newCharRace" placeholder="e.g. Kijin, Slime, Majin" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="hud-label block mb-1">Starting Class</label>
+                        <select id="newCharRole" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-cyan-300 font-bold">
+                            <option value="Fighter">⚔️ Fighter (d10)</option>
+                            <option value="Tank">🛡️ Tank (d12)</option>
+                            <option value="Ranger">🏹 Ranger (d10)</option>
+                            <option value="Mage">🔮 Mage (d6)</option>
+                            <option value="Support">✨ Support (d8)</option>
+                            <option value="Beast">🐾 Magic Beast (d10)</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="createNewCharacter()" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs py-2.5 rounded-xl transition">
+                    + Reincarnate New Character
+                </button>
+            </div>
+            <div class="border-t border-slate-800 pt-2.5">
+                <button onclick="deleteActiveCharacter()" class="w-full bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 text-xs font-bold py-2 rounded-xl">
+                    Delete Active Character
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL 5: CAMPAIGN ROOM CODE & CLOUD SYNC
+         ========================================== -->
+    <div id="campaignModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3">
+        <div class="bg-rimuru-panel sage-border rounded-2xl max-w-md w-full p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-extrabold uppercase tracking-wider text-cyan-300">Campaign Join Code (Thought Communication)</h3>
+                <button onclick="closeCampaignModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Have your players enter the same <strong>Campaign Room Code</strong> to share your live <strong>Master Skill Dex</strong>, <strong>Master Item Ledger</strong>, <strong>Party Roster</strong>, and <strong>Named NPCs</strong>!
+            </p>
+            <div>
+                <label class="hud-label block mb-1">Campaign Room Code</label>
+                <input type="text" id="campaignCodeInput" value="JURA-77" class="w-full bg-slate-950 border border-cyan-500/50 rounded-xl px-3 py-2 text-sm font-mono font-extrabold text-cyan-300 uppercase">
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeCampaignModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">Cancel</button>
+                <button onclick="joinCampaignRoom()" class="px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 text-xs font-extrabold">Connect to Room</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL 6: JSON EXPORT / IMPORT BACKUP
+         ========================================== -->
+    <div id="settingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3">
+        <div class="bg-rimuru-panel sage-border rounded-2xl max-w-md w-full p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-extrabold uppercase tracking-wider text-cyan-300">Campaign & Character Backup (JSON)</h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="exportCampaignJson()" class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs py-2 rounded-xl">Copy JSON Backup</button>
+                <button onclick="importCampaignJson()" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-2 rounded-xl">Load JSON Backup</button>
+            </div>
+            <textarea id="jsonBackupArea" rows="6" placeholder="Paste JSON backup here or click Copy JSON Backup..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[11px] font-mono text-slate-300"></textarea>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL 7: MULTICLASS & LEVEL UP MANAGER
+         ========================================== -->
+    <div id="classModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 overflow-y-auto">
+        <div class="bg-rimuru-panel sage-border rounded-2xl max-w-lg w-full p-4 space-y-3.5 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div>
+                    <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/40">Class & Evolution Matrix</span>
+                    <h3 class="text-sm font-extrabold uppercase tracking-wider text-white mt-1">Multiclass & Level Manager</h3>
+                </div>
+                <button onclick="closeClassModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="bg-slate-900/90 border border-cyan-500/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <span class="hud-label text-cyan-300 block">Active Sheet</span>
+                    <div id="classModalCharName" class="text-sm font-extrabold text-white">Rimuru Tempest</div>
+                    <div id="classModalSummaryText" class="text-[11px] font-mono text-slate-400">Total Level: 5 / 20 • Hit Dice: 5d6</div>
+                </div>
+                <div class="text-right font-mono">
+                    <span class="hud-label text-amber-300 block">Next Level MC Surge</span>
+                    <span id="classModalNextMc" class="text-xs font-extrabold text-cyan-300">+1,000 MC</span>
+                </div>
+            </div>
+
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+                Click <strong>+1 LVL</strong> on any class below to level up in that class (or unlock it as a Multiclass!). Your <strong>Max HP</strong>, <strong>Hit Dice</strong>, <strong>Proficiency Bonus</strong>, and <strong>Curved Magicule Growth</strong> automatically calculate across all your classes up to Total Level 20.
+            </p>
+
+            <!-- 6 Classes Interactive List -->
+            <div id="multiclassRowsContainer" class="space-y-2"></div>
+
+            <div class="flex justify-end pt-2 border-t border-slate-800">
+                <button onclick="closeClassModal()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-extrabold">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 6 CAMPAIGN CLASSES (INCLUDING MAGIC BEAST) & CURVED MAGICULE GROWTH
+        // ==========================================
+        const TENSURA_CLASSES = {
+            Fighter: { icon: '⚔️', hitDie: 10, avgHpPerLvl: 6, primary: 'STR', saves: ['STR', 'DEX'], desc: 'Weapon Masters & Vanguard Strikers', label: '⚔️ Fighter (d10 • STR/DEX)' },
+            Tank:    { icon: '🛡️', hitDie: 12, avgHpPerLvl: 7, primary: 'CON', saves: ['CON', 'STR'], desc: 'Juggernauts & Iron Wall Defenders', label: '🛡️ Tank (d12 • CON/STR)' },
+            Ranger:  { icon: '🏹', hitDie: 10, avgHpPerLvl: 6, primary: 'DEX', saves: ['DEX', 'WIS'], desc: 'High-Speed Scouts & Shadow Hunters', label: '🏹 Ranger (d10 • DEX/WIS)' },
+            Mage:    { icon: '🔮', hitDie: 6,  avgHpPerLvl: 4, primary: 'INT', saves: ['INT', 'WIS'], desc: 'Magicule Weavers & Arcane Scholars', label: '🔮 Mage (d6 • INT/WIS)' },
+            Support: { icon: '✨', hitDie: 8,  avgHpPerLvl: 5, primary: 'WIS', saves: ['WIS', 'CHA'], desc: 'Soul Corridor Commanders & Healers', label: '✨ Support (d8 • WIS/CHA)' },
+            Beast:   { icon: '🐾', hitDie: 10, avgHpPerLvl: 6, primary: 'STR', saves: ['STR', 'CON'], desc: 'Magic Beasts, Fangs, Claws & Monster Instincts', label: '🐾 Magic Beast (d10 • STR/CON)' }
+        };
+
+        // Exponential / Curved Magicule growth per level: small gains early, huge Demon-Lord-tier gains at high levels!
+        const LEVEL_MC_GROWTH_CURVE = {
+            1: 0,
+            2: 150,     3: 250,     4: 400,     5: 650,
+            6: 1000,    7: 1500,    8: 2200,    9: 3200,    10: 4800,
+            11: 7000,   12: 10000,  13: 14500,  14: 21000,  15: 30000,
+            16: 45000,  17: 65000,  18: 95000,  19: 140000, 20: 200000
+        };
+
+        const DND_SKILLS_META = [
+            { id: 'acrobatics', name: 'Acrobatics', stat: 'DEX' },
+            { id: 'animal_handling', name: 'Animal Handling', stat: 'WIS' },
+            { id: 'arcana', name: 'Arcana', stat: 'INT' },
+            { id: 'athletics', name: 'Athletics', stat: 'STR' },
+            { id: 'deception', name: 'Deception', stat: 'CHA' },
+            { id: 'history', name: 'History', stat: 'INT' },
+            { id: 'insight', name: 'Insight', stat: 'WIS' },
+            { id: 'intimidation', name: 'Intimidation', stat: 'CHA' },
+            { id: 'investigation', name: 'Investigation', stat: 'INT' },
+            { id: 'medicine', name: 'Medicine', stat: 'WIS' },
+            { id: 'nature', name: 'Nature', stat: 'INT' },
+            { id: 'perception', name: 'Perception', stat: 'WIS' },
+            { id: 'performance', name: 'Performance', stat: 'CHA' },
+            { id: 'persuasion', name: 'Persuasion', stat: 'CHA' },
+            { id: 'religion', name: 'Religion', stat: 'INT' },
+            { id: 'sleight_of_hand', name: 'Sleight of Hand', stat: 'DEX' },
+            { id: 'stealth', name: 'Stealth', stat: 'DEX' },
+            { id: 'survival', name: 'Survival', stat: 'WIS' }
+        ];
+
+        const DEFAULT_COMPENDIUM_SKILLS = [
+            {
+                id: 'cskill_lizard_scales',
+                name: 'Lizard Scales',
+                tier: 'Intrinsic',
+                type: 'Passive',
+                mcNumber: 0,
+                scaleStat: 'CON',
+                addProf: true,
+                dmgDice: '',
+                flatBonus: 0,
+                costText: '0 MC (Biological)',
+                affinity: 'Physical / Natural Armor',
+                effect: 'Grants +1 natural bonus to AC and reduces non-magical slashing damage by 2.',
+                evolution: 'Evolves into Armorsaurus Armor upon absorbing Reptilian Monster Core.'
+            },
+            {
+                id: 'cskill_armorsaurus',
+                name: 'Armorsaurus Armor',
+                tier: 'Intrinsic',
+                type: 'Toggle / Aura',
+                mcNumber: 100,
+                scaleStat: 'CON',
+                addProf: true,
+                dmgDice: '',
+                flatBonus: 0,
+                costText: '100 MC (Upkeep: 20 MC/turn)',
+                affinity: 'Earth / Hardening',
+                effect: 'Increases AC by +2 and grants resistance to piercing and slashing damage while active.',
+                evolution: 'Evolves into Diamond Scale Carapace.'
+            },
+            {
+                id: 'cskill_cold_res',
+                name: 'Cold Resistance',
+                tier: 'Common',
+                type: 'Passive',
+                mcNumber: 0,
+                scaleStat: 'NONE',
+                addProf: false,
+                dmgDice: '',
+                flatBonus: 0,
+                costText: 'Passive (0 MC)',
+                affinity: 'Ice / Thermal',
+                effect: 'Halves all incoming Cold and Frost damage.',
+                evolution: 'Combines with Heat Resistance into Thermal Fluctuation Resistance.'
+            },
+            {
+                id: 'cskill_blade_blasts',
+                name: 'Blade Blasts',
+                tier: 'Common',
+                type: 'Active',
+                mcNumber: 60,
+                scaleStat: 'DEX',
+                addProf: true,
+                dmgDice: '2d6',
+                flatBonus: 0,
+                costText: '60 MC per slash',
+                affinity: 'Wind / Force',
+                effect: 'Unleashes a crescent vacuum wave from a melee weapon up to 30ft.',
+                evolution: 'Mastery unlocks Dimension Sever.'
+            },
+            {
+                id: 'cskill_hellfire',
+                name: 'Hellfire',
+                tier: 'Extra',
+                type: 'Active',
+                mcNumber: 250,
+                scaleStat: 'INT',
+                addProf: true,
+                dmgDice: '4d8',
+                flatBonus: 0,
+                costText: '250 MC',
+                affinity: 'Dark Flame',
+                effect: ' encapsulates a 15ft sphere in black dome flames that ignore standard fire resistance.',
+                evolution: 'Fuses into Black Flame Manipulation.'
+            },
+            {
+                id: 'cskill_herculean',
+                name: 'Herculean Strength',
+                tier: 'Extra',
+                type: 'Toggle / Aura',
+                mcNumber: 120,
+                scaleStat: 'STR',
+                addProf: true,
+                dmgDice: '2d8',
+                flatBonus: 2,
+                costText: '120 MC (Upkeep: 30 MC/turn)',
+                affinity: 'Physical Reinforcement',
+                effect: 'Advantage on STR checks and adds +2d8 + 2 bonus force damage to melee strikes.',
+                evolution: 'Evolves into Steel Strength -> Ultimate Buster.'
+            },
+            {
+                id: 'cskill_predator',
+                name: 'Predator',
+                tier: 'Unique',
+                type: 'Active',
+                mcNumber: 200,
+                scaleStat: 'INT',
+                addProf: true,
+                dmgDice: '3d10',
+                flatBonus: 0,
+                origin: 'Born from ravenous hunger to absorb and analyze all phenomena.',
+                passive: 'Grants internal Sub-Space Stomach storage and immunity to ingested toxins.',
+                subSkills: [
+                    { name: 'Predation & Analysis', cost: '200 MC', effect: 'Devours defeated target on Killing Blow to extract Magicules and roll on the DM Skill Table.', scaleStat: 'INT', dmgDice: '3d10' },
+                    { name: 'Mimicry & Isolation', cost: '100 MC', effect: 'Replicates the biology of analyzed monsters or isolates harmful curses/magic.', scaleStat: 'NONE', dmgDice: '' }
+                ],
+                trump: 'Evolves into Gluttony (Beelzebuth) upon Demon Lord Seed awakening.'
+            },
+            {
+                id: 'cskill_janus',
+                name: 'Gateway Lord Janus',
+                tier: 'Ultimate',
+                type: 'Active',
+                mcNumber: 1000,
+                scaleStat: 'INT',
+                addProf: true,
+                dmgDice: '6d10',
+                flatBonus: 5,
+                origin: 'Awakened Mastery of Boundaries, Portals, and Dimensional Thresholds.',
+                passive: 'Absolute Spatial Domination: Immune to forced teleportation and spatial lock.',
+                subSkills: [
+                    { name: 'Dimensional Rift Sever', cost: '600 MC', effect: 'Slashes open a fault in space that ignores physical armor.', scaleStat: 'INT', dmgDice: '6d10' },
+                    { name: 'Boundary Gate Reflection', cost: '500 MC', effect: 'Redirects a projectile or spell back through a twin portal at the attacker.', scaleStat: 'INT', dmgDice: '4d10' }
+                ],
+                trump: 'Labyrinth Horizon: Banishes targets within 60ft into an isolated pocket dimension for 3 rounds.'
+            }
+        ];
+
+        const DEFAULT_COMPENDIUM_ITEMS = [
+            { id: 'citem_full_potion', name: 'Full Potion (99% Hipokute)', qty: 1, category: 'Potion/Consumable', grade: 'Rare', scaleStat: 'NONE', addProf: false, dmgDice: '4d8', flatBonus: 15, desc: 'Restores 4d8 + 15 HP and reattaches severed limbs.' },
+            { id: 'citem_magisteel_blade', name: 'Magisteel Longsword', qty: 1, category: 'Weapon', grade: 'Unique', scaleStat: 'STR', addProf: true, dmgDice: '1d10', flatBonus: 2, desc: 'Conducts the wielder\'s Magicules seamlessly (+2 to Hit & Damage).' },
+            { id: 'citem_charybdis_shield', name: 'Charybdis Scale Shield', qty: 1, category: 'Armor', grade: 'Legend', scaleStat: 'CON', addProf: true, dmgDice: '', flatBonus: 0, desc: '+3 AC and grants Magic Interference resistance.' },
+            { id: 'citem_demon_katana', name: 'Demon Steel Katana', qty: 1, category: 'Weapon', grade: 'Legend', scaleStat: 'DEX', addProf: true, dmgDice: '2d8', flatBonus: 3, desc: 'Forged by Kurobe. Evolves alongside its master\'s Magicule pool.' }
+        ];
+
+        const DEFAULT_CAMPAIGN_NPCS = [
+            {
+                id: 'npc_ranga',
+                isNpc: true,
+                name: 'Ranga',
+                title: 'Tempest Starwolf',
+                category: 'Named Subordinate',
+                race: 'Tempest Starwolf',
+                namer: 'Rimuru Tempest',
+                role: 'Beast',
+                level: 5,
+                classes: { Beast: 3, Ranger: 2 },
+                autoHp: true,
+                currHp: 99,
+                maxHp: 99,
+                bonusHp: 0,
+                tempHp: 0,
+                ac: 17,
+                speed: '60ft',
+                currMc: 28000,
+                maxMc: 28000,
+                upkeepMc: 40,
+                affinities: 'Black Lightning, Wind, Shadow',
+                deathSaves: { s1: false, s2: false, s3: false, f1: false, f2: false, f3: false },
+                stats: { STR: 18, DEX: 18, CON: 16, INT: 12, WIS: 16, CHA: 12 },
+                saveProfs: { STR: false, DEX: true, CON: false, INT: false, WIS: true, CHA: false },
+                dndSkills: { perception: 2, stealth: 2, athletics: 1, survival: 1 },
+                currency: { gold: 0, magisteel: 2, cores: 3, herbs: 5 },
+                skills: [
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS[3])),
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS[5]))
+                ],
+                inventory: [],
+                notes: 'Lurks inside his master\'s shadow. Commands Black Lightning, Death Storm, and Shadow Motion.'
+            },
+            {
+                id: 'npc_benimaru',
+                isNpc: true,
+                name: 'Benimaru',
+                title: 'Flare Lord',
+                category: 'Named Subordinate',
+                race: 'Kijin (Ogre Evolution)',
+                namer: 'Rimuru Tempest',
+                role: 'Fighter',
+                level: 6,
+                autoHp: true,
+                currHp: 108,
+                maxHp: 108,
+                bonusHp: 0,
+                tempHp: 0,
+                ac: 19,
+                speed: '40ft',
+                currMc: 62000,
+                maxMc: 62000,
+                upkeepMc: 80,
+                affinities: 'Black Flame, Hellfire, Swordsmanship',
+                deathSaves: { s1: false, s2: false, s3: false, f1: false, f2: false, f3: false },
+                stats: { STR: 18, DEX: 18, CON: 16, INT: 16, WIS: 14, CHA: 16 },
+                saveProfs: { STR: true, DEX: true, CON: false, INT: false, WIS: false, CHA: false },
+                dndSkills: { athletics: 2, intimidation: 1, insight: 1, acrobatics: 1 },
+                currency: { gold: 200, magisteel: 5, cores: 2, herbs: 4 },
+                skills: [
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS[3])),
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS[4]))
+                ],
+                inventory: [
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_ITEMS[3]))
+                ],
+                notes: 'Commander-in-Chief of Tempest. Master tactician and swordsman wielding Hellflare and Black Flame Manipulation.'
+            },
+            {
+                id: 'npc_gazel',
+                isNpc: true,
+                name: 'King Gazel Dwargo',
+                title: 'Hero King of Dwargon',
+                category: 'Story Ally',
+                race: 'Dwarf Saint',
+                namer: 'Armed Nation of Dwargon',
+                role: 'Tank',
+                level: 10,
+                autoHp: true,
+                currHp: 165,
+                maxHp: 165,
+                bonusHp: 10,
+                tempHp: 0,
+                ac: 21,
+                speed: '35ft',
+                currMc: 95000,
+                maxMc: 95000,
+                upkeepMc: 100,
+                affinities: 'Earth Spirit, Heroic Aura, Sword Saint',
+                deathSaves: { s1: false, s2: false, s3: false, f1: false, f2: false, f3: false },
+                stats: { STR: 20, DEX: 16, CON: 20, INT: 14, WIS: 18, CHA: 18 },
+                saveProfs: { STR: true, DEX: false, CON: true, INT: false, WIS: false, CHA: false },
+                dndSkills: { athletics: 2, insight: 2, intimidation: 2, history: 1 },
+                currency: { gold: 5000, magisteel: 50, cores: 10, herbs: 20 },
+                skills: [
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS[5]))
+                ],
+                inventory: [
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_ITEMS[1]))
+                ],
+                notes: 'Master of Earth Spirit Sword style and Dictator Unique Skill. Watching the party closely.'
+            }
+        ];
+
+        // ==========================================
+        // HELPER & MULTICLASS AUTO-SCALING MATH FUNCTIONS
+        // ==========================================
+        function normalizeCharacterClasses(entity) {
+            if (!entity) return;
+            if (!entity.role || !TENSURA_CLASSES[entity.role]) entity.role = 'Fighter';
+            if (!entity.classes || typeof entity.classes !== 'object' || Object.keys(entity.classes).length === 0) {
+                const startLvl = Math.max(1, Math.min(20, parseInt(entity.level) || 1));
+                entity.classes = { [entity.role]: startLvl };
+            }
+            // Clean zero/invalid entries
+            let total = 0;
+            let highestClass = entity.role;
+            let highestLvl = 0;
+            for (const [clsName, lv] of Object.entries(entity.classes)) {
+                const cleanLv = Math.max(0, parseInt(lv) || 0);
+                if (!TENSURA_CLASSES[clsName] || cleanLv <= 0) {
+                    delete entity.classes[clsName];
+                } else {
+                    entity.classes[clsName] = cleanLv;
+                    total += cleanLv;
+                    if (cleanLv > highestLvl) {
+                        highestLvl = cleanLv;
+                        highestClass = clsName;
+                    }
+                }
+            }
+            if (total <= 0) {
+                entity.classes = { [entity.role]: 1 };
+                total = 1;
+                highestClass = entity.role;
+            }
+            entity.level = Math.min(20, total);
+            entity.role = highestClass;
+        }
+
+        function formatClassesSummary(entity, includeIcons = true) {
+            normalizeCharacterClasses(entity);
+            return Object.entries(entity.classes).map(([clsName, lv]) => {
+                const meta = TENSURA_CLASSES[clsName] || TENSURA_CLASSES.Fighter;
+                return `${includeIcons ? meta.icon + ' ' : ''}${clsName} ${lv}`;
+            }).join(' / ');
+        }
+
+        function formatHitDiceSummary(entity) {
+            normalizeCharacterClasses(entity);
+            return Object.entries(entity.classes).map(([clsName, lv]) => {
+                const meta = TENSURA_CLASSES[clsName] || TENSURA_CLASSES.Fighter;
+                return `${lv}d${meta.hitDie}`;
+            }).join(' + ');
+        }
+
+        function ensureFullSheetDefaults(entity) {
+            if (!entity) return null;
+            if (!entity.role) entity.role = 'Fighter';
+            if (!entity.level) entity.level = 1;
+            normalizeCharacterClasses(entity);
+            if (entity.autoHp === undefined) entity.autoHp = true;
+            if (!entity.stats) entity.stats = { STR: 12, DEX: 12, CON: 12, INT: 12, WIS: 12, CHA: 12 };
+            if (!entity.saveProfs) {
+                const cls = TENSURA_CLASSES[entity.role] || TENSURA_CLASSES.Fighter;
+                entity.saveProfs = { STR: false, DEX: false, CON: false, INT: false, WIS: false, CHA: false };
+                cls.saves.forEach(s => entity.saveProfs[s] = true);
+            }
+            if (!entity.dndSkills) entity.dndSkills = {};
+            if (!entity.currency) entity.currency = { gold: 0, magisteel: 0, cores: 0, herbs: 0 };
+            if (!entity.skills) entity.skills = [];
+            if (!entity.inventory) entity.inventory = [];
+            if (!entity.deathSaves) entity.deathSaves = { s1: false, s2: false, s3: false, f1: false, f2: false, f3: false };
+            if (!entity.ac) entity.ac = 14;
+            if (!entity.speed) entity.speed = '30ft';
+            if (entity.maxMc === undefined) entity.maxMc = entity.mc || 5000;
+            if (entity.currMc === undefined) entity.currMc = entity.maxMc;
+            if (entity.maxHp === undefined) entity.maxHp = entity.hp || 75;
+            if (entity.currHp === undefined) entity.currHp = entity.maxHp;
+            return entity;
+        }
+
+        function getActiveChar() {
+            const foundChar = characters.find(c => c.id === activeCharId);
+            if (foundChar) return ensureFullSheetDefaults(foundChar);
+            const foundNpc = campaignNpcs.find(n => n.id === activeCharId);
+            if (foundNpc) {
+                foundNpc.isNpc = true;
+                return ensureFullSheetDefaults(foundNpc);
+            }
+            return ensureFullSheetDefaults(characters[0]);
+        }
+
+        function getStatMod(score) {
+            return Math.floor(((parseInt(score) || 10) - 10) / 2);
+        }
+
+        function formatSigned(val) {
+            return val >= 0 ? `+${val}` : `${val}`;
+        }
+
+        function getProfBonus(level) {
+            const lvl = Math.max(1, Math.min(20, parseInt(level) || 1));
+            return Math.ceil(lvl / 4) + 1;
+        }
+
+        function getMagiculeTierInfo(maxMc) {
+            const mc = parseInt(maxMc) || 0;
+            if (mc >= 500000) return { tier: 6, label: 'Tier 6 • True Dragon / Awakened' };
+            if (mc >= 100000) return { tier: 5, label: 'Tier 5 • Disaster / Seed' };
+            if (mc >= 25000)  return { tier: 4, label: 'Tier 4 • Calamity / High Majin' };
+            if (mc >= 5000)   return { tier: 3, label: 'Tier 3 • Special A / Named' };
+            if (mc >= 1000)   return { tier: 2, label: 'Tier 2 • Adventurer' };
+            return { tier: 1, label: 'Tier 1 • Novice' };
+        }
+
+        function recalculateCharacterAutoStats(char) {
+            if (!char) return;
+            normalizeCharacterClasses(char);
+            const conMod = getStatMod(char.stats.CON);
+            const bonusHp = parseInt(char.bonusHp) || 0;
+
+            if (char.autoHp) {
+                // Multiclass HP calculation:
+                // 50 Base HP + First Class Level 1 full Hit Die + remaining class levels * avgHpPerLvl + (Total Level * CON Mod) + Bonus HP
+                let classHpSum = 0;
+                let firstClassProcessed = false;
+                for (const [clsName, lv] of Object.entries(char.classes)) {
+                    const clsMeta = TENSURA_CLASSES[clsName] || TENSURA_CLASSES.Fighter;
+                    if (!firstClassProcessed) {
+                        classHpSum += clsMeta.hitDie + ((lv - 1) * clsMeta.avgHpPerLvl);
+                        firstClassProcessed = true;
+                    } else {
+                        classHpSum += (lv * clsMeta.avgHpPerLvl);
+                    }
+                }
+                const calcMax = 50 + classHpSum + (char.level * conMod) + bonusHp;
+                char.maxHp = Math.max(1, calcMax);
+                if (char.currHp > char.maxHp) char.currHp = char.maxHp;
+            }
+        }
+
+        // ==========================================
+        // HUD & CHARACTER ACTIONS
+        // ==========================================
+        function renderAll() {
+            const char = getActiveChar();
+            if (!char) return;
+            recalculateCharacterAutoStats(char);
+
+            // Populate Character & Playable NPC Selector with Optgroups
+            const sel = document.getElementById('charSelect');
+            const partyOpts = characters.map(c => {
+                normalizeCharacterClasses(c);
+                return `<option value="${c.id}" ${c.id === char.id ? 'selected' : ''}>🛡️ ${c.name} (Lv.${c.level} • ${formatClassesSummary(c, false)})</option>`;
+            }).join('');
+            const npcOpts = campaignNpcs.map(n => {
+                ensureFullSheetDefaults(n);
+                return `<option value="${n.id}" ${n.id === char.id ? 'selected' : ''}>👑 ${n.name} (Lv.${n.level} • ${formatClassesSummary(n, false)})</option>`;
+            }).join('');
+            sel.innerHTML = `<optgroup label="Party Members">${partyOpts}</optgroup><optgroup label="Named Subordinates & NPCs">${npcOpts}</optgroup>`;
+
+            // Top Identity, Entity Badge & Multiclass Pill
+            document.getElementById('hudCharName').textContent = char.name;
+            document.getElementById('hudRace').textContent = char.race;
+            document.getElementById('hudClassPillText').textContent = formatClassesSummary(char, true);
+            document.getElementById('hudLevelDisplay').textContent = char.level || 1;
+            document.getElementById('skillLedgerCharLabel').textContent = char.name;
+
+            const entityBadge = document.getElementById('hudEntityBadge');
+            const npcSubline = document.getElementById('hudNpcSubline');
+            if (char.isNpc) {
+                entityBadge.textContent = char.category || 'NAMED NPC';
+                entityBadge.className = 'text-[10px] font-mono font-extrabold uppercase tracking-wider bg-amber-950/90 text-amber-300 px-2 py-0.5 rounded border border-amber-500/50';
+                npcSubline.textContent = `${char.title ? `"${char.title}" • ` : ''}Master: ${char.namer || 'Unaligned'}`;
+                npcSubline.classList.remove('hidden');
+            } else {
+                entityBadge.textContent = 'PARTY PC';
+                entityBadge.className = 'text-[10px] font-mono font-extrabold uppercase tracking-wider bg-cyan-950/90 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/40';
+                npcSubline.classList.add('hidden');
+            }
+
+            const prof = getProfBonus(char.level);
+            // Determine highest primary stat modifier across all active classes on the character
+            let bestPrimaryMod = -5;
+            let activePrimaries = [];
+            for (const clsName of Object.keys(char.classes)) {
+                const meta = TENSURA_CLASSES[clsName] || TENSURA_CLASSES.Fighter;
+                const mod = getStatMod(char.stats[meta.primary]);
+                if (!activePrimaries.includes(meta.primary)) activePrimaries.push(meta.primary);
+                if (mod > bestPrimaryMod) bestPrimaryMod = mod;
+            }
+            if (bestPrimaryMod === -5) bestPrimaryMod = 0;
+            const saveDc = 8 + prof + bestPrimaryMod;
+
+            document.getElementById('hudProfDisplay').textContent = formatSigned(prof);
+            document.getElementById('hudSaveDcDisplay').textContent = saveDc;
+            document.getElementById('hudClassSummary').textContent = `Hit Dice: ${formatHitDiceSummary(char)} | Primary: ${activePrimaries.join('/')} | Save DC: ${saveDc}`;
+
+            const dexMod = getStatMod(char.stats.DEX);
+            document.getElementById('hudInitBtnText').textContent = formatSigned(dexMod);
+            document.getElementById('hudAc').value = char.ac;
+            document.getElementById('hudSpeed').value = char.speed;
+
+            // Tier & Curved Next Level Growth
+            const tierInfo = getMagiculeTierInfo(char.maxMc);
+            document.getElementById('hudTierBadge').textContent = tierInfo.label;
+            const nextLvl = Math.min(20, (parseInt(char.level) || 1) + 1);
+            const nextMcGain = LEVEL_MC_GROWTH_CURVE[nextLvl] || 0;
+            const conGain = Math.max(1, getStatMod(char.stats.CON));
+            const totalNextMc = nextMcGain + (conGain * 50);
+            document.getElementById('nextLvlMcBadge').textContent = char.level >= 20
+                ? 'MAX LEVEL 20 REACHED'
+                : `Lv.${nextLvl} Growth: +${totalNextMc.toLocaleString()} MC`;
+
+            // HP Tracker
+            document.getElementById('autoHpToggle').checked = !!char.autoHp;
+            document.getElementById('hpCurrInput').value = char.currHp;
+            document.getElementById('hpMaxInput').value = char.maxHp;
+            document.getElementById('hpMaxInput').disabled = !!char.autoHp;
+            document.getElementById('hpBonusInput').value = char.bonusHp || 0;
+            document.getElementById('hpTempInput').value = char.tempHp || 0;
+            const hpPct = Math.max(0, Math.min(100, Math.round((char.currHp / Math.max(1, char.maxHp)) * 100)));
+            document.getElementById('hpPercentText').textContent = `${hpPct}%`;
+            document.getElementById('hpProgressBar').style.width = `${hpPct}%`;
+
+            // Death Saves
+            const ds = char.deathSaves || {};
+            document.getElementById('dsSucc1').checked = !!ds.s1;
+            document.getElementById('dsSucc2').checked = !!ds.s2;
+            document.getElementById('dsSucc3').checked = !!ds.s3;
+            document.getElementById('dsFail1').checked = !!ds.f1;
+            document.getElementById('dsFail2').checked = !!ds.f2;
+            document.getElementById('dsFail3').checked = !!ds.f3;
+
+            // Magicule Tracker
+            document.getElementById('mcCurrInput').value = char.currMc;
+            document.getElementById('mcMaxInput').value = char.maxMc;
+            document.getElementById('mcUpkeepInput').value = char.upkeepMc || 0;
+            const mcPct = Math.max(0, Math.min(100, Math.round((char.currMc / Math.max(1, char.maxMc)) * 100)));
+            document.getElementById('mcPercentText').textContent = `${mcPct}%`;
+            document.getElementById('mcProgressBar').style.width = `${mcPct}%`;
+            document.getElementById('affinitiesInput').value = char.affinities || '';
+
+            // Currency
+            const curr = char.currency || { gold: 0, magisteel: 0, cores: 0, herbs: 0 };
+            document.getElementById('invGold').value = curr.gold || 0;
+            document.getElementById('invMagisteel').value = curr.magisteel || 0;
+            document.getElementById('invCores').value = curr.cores || 0;
+            document.getElementById('invHerbs').value = curr.herbs || 0;
+
+            renderAbilitiesAndSaves();
+            renderDndSkills();
+            renderTensuraSkills();
+            renderInventory();
+            renderCompendiumSkills();
+            renderCompendiumItems();
+            renderPartyRoster();
+            renderNpcs();
+            if (!document.getElementById('classModal').classList.contains('hidden')) {
+                renderClassModalContent();
+            }
+        }
+
+        function openClassModal() {
+            renderClassModalContent();
+            document.getElementById('classModal').classList.remove('hidden');
+        }
+
+        function closeClassModal() {
+            document.getElementById('classModal').classList.add('hidden');
+        }
+
+        function renderClassModalContent() {
+            const char = getActiveChar();
+            if (!char) return;
+            normalizeCharacterClasses(char);
+
+            document.getElementById('classModalCharName').textContent = `${char.name} (${formatClassesSummary(char, true)})`;
+            document.getElementById('classModalSummaryText').textContent = `Total Level: ${char.level} / 20 • Hit Dice: ${formatHitDiceSummary(char)} • Prof: ${formatSigned(getProfBonus(char.level))}`;
+
+            const nextLvl = Math.min(20, (parseInt(char.level) || 1) + 1);
+            const nextMcGain = LEVEL_MC_GROWTH_CURVE[nextLvl] || 0;
+            const conGain = Math.max(1, getStatMod(char.stats.CON));
+            const totalNextMc = nextMcGain + (conGain * 50);
+            document.getElementById('classModalNextMc').textContent = char.level >= 20
+                ? 'MAX LVL 20'
+                : `Lv.${nextLvl}: +${totalNextMc.toLocaleString()} MC`;
+
+            const container = document.getElementById('multiclassRowsContainer');
+            container.innerHTML = Object.entries(TENSURA_CLASSES).map(([clsKey, meta]) => {
+                const currLv = char.classes[clsKey] || 0;
+                const isActive = currLv > 0;
+                return `
+                <div class="flex items-center justify-between bg-slate-900/95 border ${isActive ? 'border-cyan-500/50 shadow-sm' : 'border-slate-800'} rounded-xl p-2.5">
+                    <div class="space-y-0.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm">${meta.icon}</span>
+                            <span class="text-xs font-extrabold ${isActive ? 'text-white' : 'text-slate-300'}">${clsKey === 'Beast' ? 'Magic Beast' : clsKey}</span>
+                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950 text-cyan-300 border border-slate-800">d${meta.hitDie} HP • ${meta.saves.join('/')}</span>
+                            ${isActive ? `<span class="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">Lv.${currLv}</span>` : ''}
+                        </div>
+                        <p class="text-[10px] text-slate-400">${meta.desc}</p>
+                    </div>
+                    <div class="flex items-center space-x-1.5 shrink-0">
+                        <button onclick="adjustClassLevel('${clsKey}', -1)" ${currLv <= 0 || char.level <= 1 ? 'disabled' : ''} class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-300 disabled:opacity-30 disabled:pointer-events-none text-xs font-mono font-bold transition" title="Remove 1 Level in ${clsKey}">
+                            -1
+                        </button>
+                        <span class="w-6 text-center font-mono font-extrabold text-xs ${isActive ? 'text-cyan-300' : 'text-slate-500'}">${currLv}</span>
+                        <button onclick="adjustClassLevel('${clsKey}', 1)" ${char.level >= 20 ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-sky-400 hover:from-cyan-400 hover:to-sky-300 text-slate-950 disabled:opacity-30 disabled:pointer-events-none text-[11px] font-mono font-extrabold transition active:scale-95">
+                            +1 LVL
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function adjustClassLevel(clsKey, delta) {
+            const char = getActiveChar();
+            if (!char || !TENSURA_CLASSES[clsKey]) return;
+            normalizeCharacterClasses(char);
+
+            if (delta > 0) {
+                if (char.level >= 20) {
+                    showSageNotice('Level Cap Reached', `${char.name} is already at Total Level 20!`);
+                    return;
+                }
+                const oldMaxHp = char.maxHp;
+                const wasFirstLevelInClass = !char.classes[clsKey];
+                char.classes[clsKey] = (char.classes[clsKey] || 0) + 1;
+
+                // Grant primary saving throw proficiency if unlocking their first/main class
+                const clsMeta = TENSURA_CLASSES[clsKey];
+                if (wasFirstLevelInClass && Object.keys(char.classes).length === 1) {
+                    clsMeta.saves.forEach(s => char.saveProfs[s] = true);
+                }
+
+                recalculateCharacterAutoStats(char);
+                const hpDiff = Math.max(0, char.maxHp - oldMaxHp);
+                char.currHp += hpDiff;
+
+                // Curved Magicule Growth based on new Total Character Level
+                const curveMc = LEVEL_MC_GROWTH_CURVE[char.level] || 500;
+                const conBonusMc = Math.max(1, getStatMod(char.stats.CON)) * 50;
+                const totalMcAdded = curveMc + conBonusMc;
+                char.maxMc = (parseInt(char.maxMc) || 0) + totalMcAdded;
+                char.currMc = (parseInt(char.currMc) || 0) + totalMcAdded;
+
+                saveState();
+                renderAll();
+                showSageNotice(
+                    `《 EVOLUTION: ${clsKey.toUpperCase()} LV.${char.classes[clsKey]} (TOTAL LV.${char.level}) 》`,
+                    `<div class="space-y-1">
+                        <p class="text-indigo-300 font-bold">Classes: ${formatClassesSummary(char, true)}</p>
+                        <p class="text-emerald-300 font-bold">+${hpDiff} Max Vitality (HP) [Hit Die d${clsMeta.hitDie}]</p>
+                        <p class="text-cyan-300 font-bold">+${totalMcAdded.toLocaleString()} Max Magicules (Curved Growth)</p>
+                        <p class="text-slate-300">Proficiency Bonus: <strong>${formatSigned(getProfBonus(char.level))}</strong></p>
+                    </div>`
+                );
+            } else if (delta < 0) {
+                if (!char.classes[clsKey] || char.level <= 1) return;
+                const oldLevel = char.level;
+                const curveMc = LEVEL_MC_GROWTH_CURVE[oldLevel] || 0;
+                const conBonusMc = Math.max(1, getStatMod(char.stats.CON)) * 50;
+                const mcToRemove = curveMc + conBonusMc;
+
+                char.classes[clsKey] -= 1;
+                if (char.classes[clsKey] <= 0) delete char.classes[clsKey];
+
+                char.maxMc = Math.max(100, (parseInt(char.maxMc) || 1000) - mcToRemove);
+                char.currMc = Math.min(char.maxMc, char.currMc);
+
+                recalculateCharacterAutoStats(char);
+                saveState();
+                renderAll();
+            }
+        }
+
+        function toggleAutoHp(checked) {
+            const char = getActiveChar();
+            if (!char) return;
+            char.autoHp = checked;
+            recalculateCharacterAutoStats(char);
+            saveState();
+            renderAll();
+        }
+
+        function updateVitalsField(field, val) {
+            const char = getActiveChar();
+            if (!char) return;
+            if (['ac', 'currHp', 'maxHp', 'bonusHp', 'tempHp', 'currMc', 'maxMc', 'upkeepMc'].includes(field)) {
+                char[field] = parseInt(val) || 0;
+            } else {
+                char[field] = val;
+            }
+            recalculateCharacterAutoStats(char);
+            saveState();
+            renderAll();
+        }
+
+        function modifyHp(delta) {
+            const char = getActiveChar();
+            if (!char) return;
+            char.currHp = Math.max(0, Math.min(char.maxHp, (parseInt(char.currHp) || 0) + delta));
+            saveState();
+            renderAll();
+        }
+
+        function modifyHpCustom(sign) {
+            const el = document.getElementById('hpCustomDelta');
+            const amt = parseInt(el.value) || 0;
+            if (!amt) return;
+            modifyHp(amt * sign);
+            el.value = '';
+        }
+
+        function modifyMc(delta) {
+            const char = getActiveChar();
+            if (!char) return;
+            char.currMc = Math.max(0, Math.min(char.maxMc, (parseInt(char.currMc) || 0) + delta));
+            saveState();
+            renderAll();
+        }
+
+        function modifyMcCustom(sign) {
+            const el = document.getElementById('mcCustomDelta');
+            const amt = parseInt(el.value) || 0;
+            if (!amt) return;
+            modifyMc(amt * sign);
+            el.value = '';
+        }
+
+        function deductTurnUpkeep() {
+            const char = getActiveChar();
+            if (!char) return;
+            const up = parseInt(char.upkeepMc) || 0;
+            modifyMc(-up);
+            showSageNotice('Turn Upkeep Deducted', `Spent <strong>${up.toLocaleString()} MC</strong> maintaining active skills.`);
+        }
+
+        function saveDeathSaves() {
+            const char = getActiveChar();
+            if (!char) return;
+            char.deathSaves = {
+                s1: document.getElementById('dsSucc1').checked,
+                s2: document.getElementById('dsSucc2').checked,
+                s3: document.getElementById('dsSucc3').checked,
+                f1: document.getElementById('dsFail1').checked,
+                f2: document.getElementById('dsFail2').checked,
+                f3: document.getElementById('dsFail3').checked
+            };
+            saveState();
+        }
+
+        function takeShortRest() {
+            const char = getActiveChar();
+            if (!char) return;
+            const heal = Math.round(char.maxHp * 0.25);
+            const mcRegen = Math.round(char.maxMc * 0.25);
+            char.currHp = Math.min(char.maxHp, char.currHp + heal);
+            char.currMc = Math.min(char.maxMc, char.currMc + mcRegen);
+            saveState();
+            renderAll();
+            showSageNotice('Short Rest Complete', `Recovered <strong>+${heal} HP</strong> and <strong>+${mcRegen.toLocaleString()} MC</strong>.`);
+        }
+
+        function takeLongRest() {
+            const char = getActiveChar();
+            if (!char) return;
+            char.currHp = char.maxHp;
+            char.currMc = char.maxMc;
+            char.tempHp = 0;
+            char.deathSaves = { s1: false, s2: false, s3: false, f1: false, f2: false, f3: false };
+            saveState();
+            renderAll();
+            showSageNotice('Long Rest Complete', 'Vitality and Magicule Pools fully restored to 100%!');
+        }
+
+        // ==========================================
+        // TAB 6: NAMED SUBORDINATES & STORY NPCS (FULL PLAYABLE SHEETS)
+        // ==========================================
+        function setNpcFilter(cat) {
+            currentNpcFilter = cat;
+            renderNpcs();
+        }
+
+        function assumeNpcSheet(npcId) {
+            const npc = campaignNpcs.find(n => n.id === npcId);
+            if (!npc) return;
+            npc.isNpc = true;
+            ensureFullSheetDefaults(npc);
+            activeCharId = npc.id;
+            saveState();
+            renderAll();
+            showSageNotice(
+                `《 ASSUMED CONTROL: ${npc.name.toUpperCase()} 》`,
+                `The top HUD, 5e Stats, Personal Skills, and Stomach tabs are now piloting <strong>${npc.name}</strong> (Lv.${npc.level} ${npc.role})!`
+            );
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderNpcs() {
+            const q = (document.getElementById('npcSearchInput').value || '').toLowerCase();
+            const list = campaignNpcs.filter(n => {
+                ensureFullSheetDefaults(n);
+                const matchesCat = currentNpcFilter === 'ALL' || n.category === currentNpcFilter;
+                const matchesQ = n.name.toLowerCase().includes(q) ||
+                                 (n.race || '').toLowerCase().includes(q) ||
+                                 (n.role || '').toLowerCase().includes(q) ||
+                                 (n.namer || '').toLowerCase().includes(q) ||
+                                 (n.notes || '').toLowerCase().includes(q);
+                return matchesCat && matchesQ;
+            });
+
+            const badgeStyle = {
+                'Named Subordinate': 'bg-amber-950 text-amber-300 border-amber-500/40',
+                'Story Ally': 'bg-emerald-950 text-emerald-300 border-emerald-500/40',
+                'Neutral / Faction': 'bg-sky-950 text-sky-300 border-sky-500/40',
+                'Rival / Threat': 'bg-rose-950 text-rose-300 border-rose-500/40'
+            };
+
+            const container = document.getElementById('npcsContainer');
+            container.innerHTML = list.length ? list.map(n => {
+                recalculateCharacterAutoStats(n);
+                const isAssumed = n.id === activeCharId;
+                return `
+                <div class="bg-slate-900/90 border ${isAssumed ? 'border-amber-400 shadow-lg shadow-amber-500/10' : 'border-slate-800'} rounded-2xl p-3.5 space-y-2.5">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span class="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${badgeStyle[n.category] || badgeStyle['Story Ally']}">${n.category}</span>
+                                <span class="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/40">Lv.${n.level} • ${formatClassesSummary(n, true)}</span>
+                            </div>
+                            <h4 class="text-sm font-extrabold text-white mt-1">${n.name} <span class="text-xs font-semibold text-cyan-300">${n.title ? `• "${n.title}"` : ''}</span></h4>
+                            <p class="text-[11px] text-slate-400">${n.race || 'Monster'} • Master: <strong class="text-slate-200">${n.namer || 'Unaligned'}</strong></p>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button onclick="assumeNpcSheet('${n.id}')" class="px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold transition ${isAssumed ? 'bg-amber-400 text-slate-950' : 'bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40'}">
+                                ${isAssumed ? '★ Active HUD' : 'Assume HUD'}
+                            </button>
+                            <button onclick="openNpcModal('${n.id}')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs" title="Edit NPC Identity"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteNpc('${n.id}')" class="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 text-xs" title="Delete NPC"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Playable Vitals & Counts Row -->
+                    <div class="grid grid-cols-4 gap-1.5 font-mono text-xs text-center">
+                        <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                            <span class="hud-label block">HP</span>
+                            <span class="text-emerald-400 font-bold">${n.currHp}/${n.maxHp}</span>
+                        </div>
+                        <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                            <span class="hud-label block">MC</span>
+                            <span class="text-cyan-300 font-bold">${(n.currMc || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                            <span class="hud-label block">AC</span>
+                            <span class="text-white font-bold">${n.ac || 14}</span>
+                        </div>
+                        <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                            <span class="hud-label block">SKILLS</span>
+                            <span class="text-purple-300 font-bold">${(n.skills || []).length}</span>
+                        </div>
+                    </div>
+
+                    <!-- Mini 6-Stat Bar -->
+                    <div class="grid grid-cols-6 gap-1 text-center bg-slate-950/90 p-1.5 rounded-xl border border-slate-800/80 text-[10px] font-mono">
+                        ${['STR','DEX','CON','INT','WIS','CHA'].map(st => `
+                            <div>
+                                <span class="text-slate-500 block">${st}</span>
+                                <span class="text-slate-200 font-bold">${n.stats[st] || 10} (${formatSigned(getStatMod(n.stats[st]))})</span>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    ${n.notes ? `<p class="text-xs text-slate-300 bg-slate-950/70 p-2 rounded-xl border border-slate-800/70 leading-relaxed">${n.notes}</p>` : ''}
+                </div>`;
+            }).join('') : `<div class="col-span-2 text-center py-8 text-xs text-slate-500">No Named Subordinates or NPCs logged yet. Tap "Name Creature / Create NPC Sheet" above!</div>`;
+        }
+
+        function openNpcModal(npcId) {
+            document.getElementById('editNpcId').value = npcId || '';
+            const ex = npcId ? campaignNpcs.find(n => n.id === npcId) : null;
+            if (ex) ensureFullSheetDefaults(ex);
+
+            document.getElementById('npcNameInput').value = ex ? ex.name : '';
+            document.getElementById('npcTitleInput').value = ex ? (ex.title || '') : '';
+            document.getElementById('npcCategoryInput').value = ex ? (ex.category || 'Named Subordinate') : 'Named Subordinate';
+            document.getElementById('npcRaceInput').value = ex ? (ex.race || '') : '';
+            document.getElementById('npcNamerInput').value = ex ? (ex.namer || getActiveChar().name) : getActiveChar().name;
+            document.getElementById('npcRoleInput').value = ex ? (ex.role || 'Fighter') : 'Fighter';
+            document.getElementById('npcLevelInput').value = ex ? (ex.level || 4) : 4;
+            document.getElementById('npcMcInput').value = ex ? (ex.maxMc || 8500) : 8500;
+            document.getElementById('npcNamingCostInput').value = 0;
+
+            document.getElementById('npcStrInput').value = ex ? (ex.stats.STR || 14) : 14;
+            document.getElementById('npcDexInput').value = ex ? (ex.stats.DEX || 14) : 14;
+            document.getElementById('npcConInput').value = ex ? (ex.stats.CON || 14) : 14;
+            document.getElementById('npcIntInput').value = ex ? (ex.stats.INT || 12) : 12;
+            document.getElementById('npcWisInput').value = ex ? (ex.stats.WIS || 12) : 12;
+            document.getElementById('npcChaInput').value = ex ? (ex.stats.CHA || 10) : 10;
+
+            document.getElementById('npcNotesInput').value = ex ? (ex.notes || '') : '';
+            document.getElementById('npcModal').classList.remove('hidden');
+        }
+
+        function closeNpcModal() {
+            document.getElementById('npcModal').classList.add('hidden');
+        }
+
+        function saveNpcFromModal(assumeImmediately) {
+            const id = document.getElementById('editNpcId').value;
+            const name = document.getElementById('npcNameInput').value.trim();
+            if (!name) return;
+
+            const namingCost = parseInt(document.getElementById('npcNamingCostInput').value) || 0;
+            if (namingCost > 0) {
+                modifyMc(-namingCost);
+            }
+
+            const existing = id ? campaignNpcs.find(n => n.id === id) : null;
+            const role = document.getElementById('npcRoleInput').value || 'Fighter';
+            const level = Math.max(1, Math.min(20, parseInt(document.getElementById('npcLevelInput').value) || 1));
+            const maxMc = parseInt(document.getElementById('npcMcInput').value) || 5000;
+
+            const stats = {
+                STR: parseInt(document.getElementById('npcStrInput').value) || 10,
+                DEX: parseInt(document.getElementById('npcDexInput').value) || 10,
+                CON: parseInt(document.getElementById('npcConInput').value) || 10,
+                INT: parseInt(document.getElementById('npcIntInput').value) || 10,
+                WIS: parseInt(document.getElementById('npcWisInput').value) || 10,
+                CHA: parseInt(document.getElementById('npcChaInput').value) || 10
+            };
+
+            const cls = TENSURA_CLASSES[role] || TENSURA_CLASSES.Fighter;
+            const saveProfs = existing && existing.saveProfs ? existing.saveProfs : { STR: false, DEX: false, CON: false, INT: false, WIS: false, CHA: false };
+            if (!existing) {
+                cls.saves.forEach(s => saveProfs[s] = true);
+            }
+
+            const classesObj = (existing && existing.classes && Object.keys(existing.classes).length > 0)
+                ? existing.classes
+                : { [role]: level };
+
+            const obj = {
+                ...(existing || {}),
+                id: id || ('npc_' + Date.now()),
+                isNpc: true,
+                name,
+                title: document.getElementById('npcTitleInput').value.trim(),
+                category: document.getElementById('npcCategoryInput').value,
+                race: document.getElementById('npcRaceInput').value.trim(),
+                namer: document.getElementById('npcNamerInput').value.trim(),
+                role,
+                level,
+                classes: classesObj,
+                autoHp: existing ? existing.autoHp : true,
+                bonusHp: existing ? (existing.bonusHp || 0) : 0,
+                tempHp: existing ? (existing.tempHp || 0) : 0,
+                ac: existing ? (existing.ac || 15) : 15,
+                speed: existing ? (existing.speed || '35ft') : '35ft',
+                maxMc,
+                currMc: existing ? Math.min(maxMc, existing.currMc || maxMc) : maxMc,
+                upkeepMc: existing ? (existing.upkeepMc || 25) : 25,
+                affinities: existing ? (existing.affinities || '') : '',
+                stats,
+                saveProfs,
+                dndSkills: existing && existing.dndSkills ? existing.dndSkills : {},
+                currency: existing && existing.currency ? existing.currency : { gold: 0, magisteel: 0, cores: 1, herbs: 0 },
+                skills: existing && existing.skills ? existing.skills : [],
+                inventory: existing && existing.inventory ? existing.inventory : [],
+                notes: document.getElementById('npcNotesInput').value.trim()
+            };
+
+            recalculateCharacterAutoStats(obj);
+            if (!existing) obj.currHp = obj.maxHp;
+
+            const idx = campaignNpcs.findIndex(n => n.id === id);
+            if (idx >= 0) campaignNpcs[idx] = obj;
+            else campaignNpcs.unshift(obj);
+
+            if (assumeImmediately) {
+                activeCharId = obj.id;
+            }
+
+            closeNpcModal();
+            saveState();
+            renderAll();
+            showSageNotice(
+                `《 SOUL CORRIDOR SHEET READY: ${name} 》`,
+                namingCost > 0
+                    ? `Created full playable sheet for <strong>${name}</strong> (Lv.${level} ${role}) and deducted <strong>${namingCost.toLocaleString()} MC</strong> for Naming!`
+                    : `Saved full playable character sheet for <strong>${name}</strong> (Lv.${level} ${role}).`
+            );
+        }
+
+        function deleteNpc(id) {
+            campaignNpcs = campaignNpcs.filter(n => n.id !== id);
+            if (activeCharId === id && characters.length > 0) {
+                activeCharId = characters[0].id;
+            }
+            saveState();
+            renderAll();
+        }
+
+        // ==========================================
+        // DICE ROLLERS & GREAT SAGE TOAST
+        // ==========================================
+        function showSageNotice(title, htmlContent) {
+            const toast = document.getElementById('sageToast');
+            const body = document.getElementById('sageToastBody');
+            body.innerHTML = `<div class="font-extrabold text-white text-sm mb-1">${title}</div>${htmlContent}`;
+            toast.classList.remove('hidden');
+        }
+
+        function closeSageToast() {
+            document.getElementById('sageToast').classList.add('hidden');
+        }
+
+        function rollD20Check(label, totalMod, breakdownText) {
+            const d20 = Math.floor(Math.random() * 20) + 1;
+            const total = d20 + totalMod;
+            const critBadge = d20 === 20
+                ? '<span class="ml-2 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-extrabold text-[10px]">NAT 20 CRIT!</span>'
+                : (d20 === 1 ? '<span class="ml-2 px-1.5 py-0.5 rounded bg-rose-600 text-white font-extrabold text-[10px]">NAT 1 FAIL!</span>' : '');
+            showSageNotice(
+                label,
+                `<div class="flex items-baseline space-x-2">
+                    <span class="text-2xl font-mono font-extrabold text-cyan-300">${total}</span>
+                    <span class="text-xs font-mono text-slate-400">[1d20 (${d20}) ${formatSigned(totalMod)}]</span>
+                    ${critBadge}
+                </div>
+                <div class="text-[11px] text-slate-400">${breakdownText || ''}</div>`
+            );
+        }
+
+        function rollInitiative() {
+            const char = getActiveChar();
+            if (!char) return;
+            const dexMod = getStatMod(char.stats.DEX);
+            rollD20Check(`${char.name} • Initiative Roll`, dexMod, `DEX Mod (${formatSigned(dexMod)})`);
+        }
+
+        function rollScaledToHit(name, scaleStat, addProf, flatBonus) {
+            const char = getActiveChar();
+            if (!char) return;
+            const statMod = (scaleStat && scaleStat !== 'NONE') ? getStatMod(char.stats[scaleStat]) : 0;
+            const prof = addProf ? getProfBonus(char.level) : 0;
+            const flat = parseInt(flatBonus) || 0;
+            const totalMod = statMod + prof + flat;
+            const parts = [];
+            if (scaleStat && scaleStat !== 'NONE') parts.push(`${scaleStat} ${formatSigned(statMod)}`);
+            if (addProf) parts.push(`Prof ${formatSigned(prof)}`);
+            if (flat !== 0) parts.push(`Bonus ${formatSigned(flat)}`);
+            rollD20Check(`${name} • Attack Roll`, totalMod, parts.join(' • '));
+        }
+
+        function rollScaledDamage(name, dmgDice, scaleStat, flatBonus, isCrit) {
+            const char = getActiveChar();
+            if (!char) return;
+            const match = (dmgDice || '1d6').trim().match(/^(\d+)d(\d+)$/i);
+            const count = match ? parseInt(match[1]) * (isCrit ? 2 : 1) : 1;
+            const sides = match ? parseInt(match[2]) : 6;
+            let rolls = [];
+            let sum = 0;
+            for (let i = 0; i < count; i++) {
+                const r = Math.floor(Math.random() * sides) + 1;
+                rolls.push(r);
+                sum += r;
+            }
+            const statMod = (scaleStat && scaleStat !== 'NONE') ? getStatMod(char.stats[scaleStat]) : 0;
+            const flat = parseInt(flatBonus) || 0;
+            const total = sum + statMod + flat;
+            showSageNotice(
+                `${name} • ${isCrit ? 'CRITICAL DAMAGE (2x Dice)' : 'Damage Roll'}`,
+                `<div class="flex items-baseline space-x-2">
+                    <span class="text-2xl font-mono font-extrabold text-amber-300">${total}</span>
+                    <span class="text-xs font-mono text-slate-300">[${count}d${sides} (${rolls.join('+')}) ${formatSigned(statMod + flat)}]</span>
+                </div>`
+            );
+        }
+
+        // ==========================================
+        // TAB 1: ABILITY SCORES & D&D 5E SKILLS
+        // ==========================================
+        function renderAbilitiesAndSaves() {
+            const char = getActiveChar();
+            if (!char) return;
+            const prof = getProfBonus(char.level);
+            const grid = document.getElementById('abilityScoresGrid');
+            const statsOrder = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+
+            grid.innerHTML = statsOrder.map(stat => {
+                const val = char.stats[stat] || 10;
+                const mod = getStatMod(val);
+                const isSaveProf = !!(char.saveProfs && char.saveProfs[stat]);
+                const saveMod = mod + (isSaveProf ? prof : 0);
+
+                return `
+                <div class="bg-slate-900/90 border ${isSaveProf ? 'border-cyan-500/50' : 'border-slate-800'} rounded-xl p-2.5 text-center space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-extrabold text-cyan-300">${stat}</span>
+                        <input type="number" value="${val}" onchange="updateAbilityScore('${stat}', this.value)" class="w-11 bg-slate-950 border border-slate-700 rounded px-1 py-0.5 text-center font-mono text-xs font-bold text-white">
+                    </div>
+                    <button onclick="rollD20Check('${stat} Ability Check', ${mod}, '${stat} Modifier')" class="w-full py-1 rounded-lg bg-slate-950 hover:bg-cyan-950/60 border border-slate-800 hover:border-cyan-500/40 font-mono font-extrabold text-base text-white transition">
+                        ${formatSigned(mod)}
+                    </button>
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px]">
+                        <button onclick="toggleSaveProf('${stat}')" class="px-1.5 py-0.5 rounded ${isSaveProf ? 'bg-cyan-500 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-400'}">
+                            SAVE
+                        </button>
+                        <button onclick="rollD20Check('${stat} Saving Throw', ${saveMod}, 'Save (${isSaveProf ? 'Proficient' : 'Unproficient'})')" class="font-mono font-bold text-cyan-300 hover:underline">
+                            ${formatSigned(saveMod)} 🎲
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function updateAbilityScore(stat, val) {
+            const char = getActiveChar();
+            if (!char) return;
+            char.stats[stat] = parseInt(val) || 10;
+            recalculateCharacterAutoStats(char);
+            saveState();
+            renderAll();
+        }
+
+        function toggleSaveProf(stat) {
+            const char = getActiveChar();
+            if (!char) return;
+            char.saveProfs[stat] = !char.saveProfs[stat];
+            saveState();
+            renderAll();
+        }
+
+        function renderDndSkills() {
+            const char = getActiveChar();
+            if (!char) return;
+            const prof = getProfBonus(char.level);
+            const q = (document.getElementById('dndSkillSearch').value || '').toLowerCase();
+            const container = document.getElementById('dndSkillsList');
+
+            const filtered = DND_SKILLS_META.filter(s => s.name.toLowerCase().includes(q) || s.stat.toLowerCase().includes(q));
+            container.innerHTML = filtered.map(s => {
+                const rank = (char.dndSkills && char.dndSkills[s.id]) || 0; // 0 none, 1 prof, 2 expert
+                const statMod = getStatMod(char.stats[s.stat]);
+                const total = statMod + (rank * prof);
+                const badgeClass = rank === 2
+                    ? 'bg-amber-950 text-amber-300 border-amber-500/50'
+                    : (rank === 1 ? 'bg-cyan-950 text-cyan-300 border-cyan-500/50' : 'bg-slate-800 text-slate-400 border-slate-700');
+                const badgeLabel = rank === 2 ? 'EXP' : (rank === 1 ? 'PROF' : '—');
+
+                return `
+                <div class="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2">
+                    <div class="flex items-center space-x-2">
+                        <button onclick="cycleDndSkillProf('${s.id}')" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${badgeClass}">
+                            ${badgeLabel}
+                        </button>
+                        <div>
+                            <span class="text-xs font-bold text-white">${s.name}</span>
+                            <span class="text-[10px] font-mono text-slate-400 ml-1">(${s.stat})</span>
+                        </div>
+                    </div>
+                    <button onclick="rollD20Check('${s.name} Check', ${total}, '${s.stat} (${formatSigned(statMod)}) + Prof (${formatSigned(rank * prof)})')" class="bg-slate-950 hover:bg-cyan-950 border border-cyan-500/30 text-cyan-300 font-mono font-extrabold text-xs px-2.5 py-1 rounded-lg">
+                        ${formatSigned(total)} 🎲
+                    </button>
+                </div>`;
+            }).join('');
+        }
+
+        function cycleDndSkillProf(skillId) {
+            const char = getActiveChar();
+            if (!char) return;
+            if (!char.dndSkills) char.dndSkills = {};
+            char.dndSkills[skillId] = ((char.dndSkills[skillId] || 0) + 1) % 3;
+            saveState();
+            renderDndSkills();
+        }
+
+        // ==========================================
+        // TAB 2 & 4: SKILL CARD RENDERING & MODALS
+        // ==========================================
+        function buildScalingRollButtonsHtml(itemName, scaleStat, addProf, dmgDice, flatBonus) {
+            const char = getActiveChar();
+            const dmgBonus = statMod + flat;
+            const safeName = itemName.replace(/'/g, "\\'");
+
+            return `
+            <div class="flex flex-wrap items-center gap-1.5 pt-1.5">
+                ${hasStat ? `
+                <button onclick="rollScaledToHit('${safeName}', '${scaleStat}', ${!!addProf}, ${flat})" class="bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-200 text-[11px] font-mono font-extrabold px-2.5 py-1 rounded-lg flex items-center space-x-1 active:scale-95 transition">
+                    <i class="fa-solid fa-crosshairs text-[9px] text-cyan-400"></i>
+                    <span>TO HIT: ${formatSigned(toHitMod)} (${scaleStat}${addProf ? '+Prof' : ''})</span>
+                </button>` : ''}
+                ${hasDice ? `
+                <button onclick="rollScaledDamage('${safeName}', '${dmgDice}', '${scaleStat || 'NONE'}', ${flat}, false)" class="bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-200 text-[11px] font-mono font-extrabold px-2.5 py-1 rounded-lg flex items-center space-x-1 active:scale-95 transition">
+                    <i class="fa-solid fa-burst text-[9px] text-amber-400"></i>
+                    <span>DMG: ${dmgDice}${dmgBonus !== 0 ? formatSigned(dmgBonus) : ''}</span>
+                </button>
+                <button onclick="rollScaledDamage('${safeName}', '${dmgDice}', '${scaleStat || 'NONE'}', ${flat}, true)" class="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-[10px] font-mono font-bold px-2 py-1 rounded-lg active:scale-95 transition">
+                    2x CRIT
+                </button>` : ''}
+            </div>`;
+        }
+
+        function renderSkillCardHtml(sk, scope) {
+            const isApex = sk.tier === 'Unique' || sk.tier === 'Ultimate';
+            const borderClass = sk.tier === 'Ultimate'
+                ? 'apex-ultimate-border bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/20'
+                : (sk.tier === 'Unique' ? 'apex-unique-border bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950/20' : 'sage-border bg-slate-900/90');
+
+            const tierBadgeColors = {
+                Intrinsic: 'bg-emerald-950 text-emerald-300 border-emerald-500/40',
+                Common: 'bg-sky-950 text-sky-300 border-sky-500/40',
+                Extra: 'bg-cyan-950 text-cyan-300 border-cyan-500/40',
+                Unique: 'bg-purple-950 text-purple-300 border-purple-500/50',
+                Ultimate: 'bg-amber-950 text-amber-300 border-amber-500/60'
+            };
+
+            const actionBtns = scope === 'personal'
+                ? `<div class="flex items-center space-x-1.5">
+                        ${sk.mcNumber > 0 ? `<button onclick="castSkillMc('${sk.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[11px] px-2.5 py-1 rounded-lg">Cast (-${sk.mcNumber} MC)</button>` : ''}
+                        <button onclick="openSkillModal('${sk.id}', 'personal')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deletePersonalSkill('${sk.id}')" class="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 text-xs"><i class="fa-solid fa-trash"></i></button>
+                   </div>`
+                : `<div class="flex items-center space-x-1.5">
+                        <button onclick="claimSkillFromCompendium('${sk.id}')" class="bg-gradient-to-r from-cyan-500 to-sky-400 hover:from-cyan-400 hover:to-sky-300 text-slate-950 font-extrabold text-[11px] px-3 py-1 rounded-lg">+ Acquire Skill</button>
+                        <button onclick="openSkillModal('${sk.id}', 'compendium')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteCompendiumSkill('${sk.id}')" class="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 text-xs"><i class="fa-solid fa-trash"></i></button>
+                   </div>`;
+
+            if (!isApex) {
+                return `
+                <div class="${borderClass} rounded-2xl p-3.5 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded border ${tierBadgeColors[sk.tier] || tierBadgeColors.Extra}">${sk.tier}</span>
+                            <span class="text-[10px] font-mono text-slate-400">${sk.type || 'Active'}</span>
+                            <h4 class="text-sm font-extrabold text-white">${sk.name}</h4>
+                        </div>
+                        ${actionBtns}
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2">
+                            <span class="hud-label text-cyan-400 block">Magicule Cost & Upkeep</span>
+                            <p class="text-slate-200 font-mono mt-0.5">${sk.costText || (sk.mcNumber + ' MC')}</p>
+                        </div>
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2">
+                            <span class="hud-label text-sky-400 block">Elemental / Conceptual Affinity</span>
+                            <p class="text-slate-200 mt-0.5">${sk.affinity || 'Unaligned'}</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 text-xs">
+                        <span class="hud-label text-slate-400 block">Mechanical Effect & Range</span>
+                        <p class="text-slate-200 mt-0.5 leading-relaxed">${sk.effect || ''}</p>
+                        ${buildScalingRollButtonsHtml(sk.name, sk.scaleStat, sk.addProf, sk.dmgDice, sk.flatBonus)}
+                    </div>
+                    <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2 text-xs">
+                        <span class="hud-label text-emerald-400 block">Mastery Level & Evolution Catalyst</span>
+                        <p class="text-slate-300 mt-0.5">${sk.evolution || 'Standard Mastery'}</p>
+                    </div>
+                </div>`;
+            } else {
+                const subsHtml = (sk.subSkills || []).map(sub => `
+                    <div class="bg-slate-900/90 border border-purple-500/30 rounded-xl p-2.5 space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-extrabold text-xs text-cyan-300">❖ ${sub.name}</span>
+                            <span class="text-[10px] font-mono text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded">${sub.cost || '0 MC'}</span>
+                        </div>
+                        <p class="text-xs text-slate-300">${sub.effect || ''}</p>
+                        ${buildScalingRollButtonsHtml(sub.name, sub.scaleStat || sk.scaleStat, true, sub.dmgDice || '', 0)}
+                    </div>
+                `).join('');
+
+                return `
+                <div class="${borderClass} rounded-2xl p-4 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono font-extrabold uppercase px-2.5 py-0.5 rounded border ${tierBadgeColors[sk.tier]}">${sk.tier === 'Ultimate' ? '✦ ULTIMATE AUTHORITY' : '★ UNIQUE SKILL'}</span>
+                            <h4 class="text-base font-extrabold text-white">${sk.name}</h4>
+                        </div>
+                        ${actionBtns}
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div class="bg-slate-950/85 border border-purple-500/30 rounded-xl p-2.5">
+                            <span class="hud-label text-purple-300 block">Soul Origin / Catalyst</span>
+                            <p class="text-slate-200 mt-0.5">${sk.origin || 'Inscribed upon the Core of the Soul'}</p>
+                        </div>
+                        <div class="bg-slate-950/85 border border-purple-500/30 rounded-xl p-2.5">
+                            <span class="hud-label text-cyan-300 block">Core Passive Authority</span>
+                            <p class="text-slate-200 mt-0.5">${sk.passive || 'Law Manipulation'}</p>
+                        </div>
+                    </div>
+                    ${buildScalingRollButtonsHtml(sk.name, sk.scaleStat, sk.addProf, sk.dmgDice, sk.flatBonus)}
+                    <div class="space-y-2">
+                        <span class="hud-label text-sky-300 block">Bundled Sub-Skills (Multi-Authority)</span>
+                        <div class="grid grid-cols-1 gap-2">${subsHtml}</div>
+                    </div>
+                    <div class="bg-slate-950/90 border border-amber-500/40 rounded-xl p-2.5 text-xs">
+                        <span class="hud-label text-amber-300 block">Apex Trump Card / Awakening Condition</span>
+                        <p class="text-amber-100 mt-0.5">${sk.trump || 'Unleashes full Soul Overdrive.'}</p>
+                    </div>
+                </div>`;
+            }
+        }
+
+        function renderTensuraSkills() {
+            const char = getActiveChar();
+            if (!char) return;
+            const q = (document.getElementById('tensuraSkillSearch').value || '').toLowerCase();
+            const list = (char.skills || []).filter(sk => {
+                const matchesTier = currentSkillTierFilter === 'ALL' || sk.tier === currentSkillTierFilter;
+                const matchesQ = sk.name.toLowerCase().includes(q) || (sk.effect || '').toLowerCase().includes(q);
+                return matchesTier && matchesQ;
+            });
+            const container = document.getElementById('tensuraSkillsContainer');
+            container.innerHTML = list.length
+                ? list.map(sk => renderSkillCardHtml(sk, 'personal')).join('')
+                : `<div class="text-center py-8 text-xs text-slate-500">No acquired skills match this filter. Claim one from the World Dex or tap + Custom Skill!</div>`;
+        }
+
+        function renderCompendiumSkills() {
+            const q = (document.getElementById('compSkillSearch').value || '').toLowerCase();
+            const list = compendiumSkills.filter(sk => {
+                const matchesTier = currentCompSkillTierFilter === 'ALL' || sk.tier === currentCompSkillTierFilter;
+                const matchesQ = sk.name.toLowerCase().includes(q) || (sk.effect || '').toLowerCase().includes(q);
+                return matchesTier && matchesQ;
+            });
+            const container = document.getElementById('compendiumSkillsContainer');
+            container.innerHTML = list.map(sk => renderSkillCardHtml(sk, 'compendium')).join('');
+        }
+
+        function setSkillTierFilter(tier) {
+            currentSkillTierFilter = tier;
+            renderTensuraSkills();
+        }
+
+        function setCompSkillTierFilter(tier) {
+            currentCompSkillTierFilter = tier;
+            renderCompendiumSkills();
+        }
+
+        function castSkillMc(skillId) {
+            const char = getActiveChar();
+            if (!char) return;
+            const sk = (char.skills || []).find(s => s.id === skillId);
+            if (!sk) return;
+            const cost = parseInt(sk.mcNumber) || 0;
+            modifyMc(-cost);
+            showSageNotice(`Activated: ${sk.name}`, `Expended <strong>${cost.toLocaleString()} MC</strong>.`);
+        }
+
+        function claimSkillFromCompendium(skillId) {
+            const char = getActiveChar();
+            const sk = compendiumSkills.find(s => s.id === skillId);
+            if (!char || !sk) return;
+            const copy = JSON.parse(JSON.stringify(sk));
+            copy.id = 'pskill_' + Date.now();
+            char.skills.push(copy);
+            saveState();
+            renderAll();
+            showSageNotice('《 SKILL ACQUIRED 》', `Inscribed <strong>[${sk.name}]</strong> onto <strong>${char.name}</strong>'s Personal Skill Ledger!`);
+        }
+
+        function deletePersonalSkill(id) {
+            const char = getActiveChar();
+            if (!char) return;
+            char.skills = char.skills.filter(s => s.id !== id);
+            saveState();
+            renderTensuraSkills();
+        }
+
+        function deleteCompendiumSkill(id) {
+            compendiumSkills = compendiumSkills.filter(s => s.id !== id);
+            saveState();
+            renderCompendiumSkills();
+        }
+
+        function openSkillModal(skillId, scope) {
+            document.getElementById('editSkillId').value = skillId || '';
+            document.getElementById('editSkillScope').value = scope || 'personal';
+            document.getElementById('skillModalTargetBadge').textContent = scope === 'compendium' ? 'Shared World Compendium Skill' : 'Personal Character Skill';
+
+            const sourceList = scope === 'compendium' ? compendiumSkills : (getActiveChar().skills || []);
+            const existing = skillId ? sourceList.find(s => s.id === skillId) : null;
+
+            document.getElementById('skillNameInput').value = existing ? existing.name : '';
+            document.getElementById('skillTierInput').value = existing ? existing.tier : 'Extra';
+            document.getElementById('skillTypeInput').value = existing ? (existing.type || 'Active') : 'Active';
+            document.getElementById('skillMcNumberInput').value = existing ? (existing.mcNumber || 0) : 100;
+            document.getElementById('skillScaleStatInput').value = existing ? (existing.scaleStat || 'NONE') : 'NONE';
+            document.getElementById('skillAddProfInput').value = existing && existing.addProf === false ? 'false' : 'true';
+            document.getElementById('skillDmgDiceInput').value = existing ? (existing.dmgDice || '') : '';
+            document.getElementById('skillFlatBonusInput').value = existing ? (existing.flatBonus || 0) : 0;
+
+            document.getElementById('skillCostTextInput').value = existing ? (existing.costText || '') : '';
+            document.getElementById('skillAffinityInput').value = existing ? (existing.affinity || '') : '';
+            document.getElementById('skillEffectInput').value = existing ? (existing.effect || '') : '';
+            document.getElementById('skillEvolutionInput').value = existing ? (existing.evolution || '') : '';
+
+            document.getElementById('apexOriginInput').value = existing ? (existing.origin || '') : '';
+            document.getElementById('apexPassiveInput').value = existing ? (existing.passive || '') : '';
+            document.getElementById('apexTrumpInput').value = existing ? (existing.trump || '') : '';
+
+            const subContainer = document.getElementById('subSkillsRowsContainer');
+            subContainer.innerHTML = '';
+            const subs = (existing && existing.subSkills && existing.subSkills.length)
+                ? existing.subSkills
+                : [{ name: '', cost: '100 MC', effect: '', scaleStat: 'INT', dmgDice: '' }];
+            subs.forEach(s => addSubSkillRow(s));
+
+            toggleSkillModalTemplate();
+            document.getElementById('skillModal').classList.remove('hidden');
+        }
+
+        function closeSkillModal() {
+            document.getElementById('skillModal').classList.add('hidden');
+        }
+
+        function toggleSkillModalTemplate() {
+            const tier = document.getElementById('skillTierInput').value;
+            const isApex = tier === 'Unique' || tier === 'Ultimate';
+            document.getElementById('standardSkillFields').classList.toggle('hidden', isApex);
+            document.getElementById('apexSkillFields').classList.toggle('hidden', !isApex);
+        }
+
+        function addSubSkillRow(data = {}) {
+            const container = document.getElementById('subSkillsRowsContainer');
+            const div = document.createElement('div');
+            div.className = 'sub-skill-row bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-1.5';
+            div.innerHTML = `
+                <div class="grid grid-cols-3 gap-1.5">
+                    <input type="text" placeholder="Sub-Skill Name" value="${data.name || ''}" class="sub-name col-span-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white font-bold">
+                    <input type="text" placeholder="Cost (e.g. 200 MC)" value="${data.cost || ''}" class="sub-cost bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono text-cyan-300">
+                </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <select class="sub-stat bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                        <option value="NONE" ${(data.scaleStat || 'NONE') === 'NONE' ? 'selected' : ''}>No Roll Stat</option>
+                        <option value="STR" ${data.scaleStat === 'STR' ? 'selected' : ''}>STR</option>
+                        <option value="DEX" ${data.scaleStat === 'DEX' ? 'selected' : ''}>DEX</option>
+                        <option value="CON" ${data.scaleStat === 'CON' ? 'selected' : ''}>CON</option>
+                        <option value="INT" ${data.scaleStat === 'INT' ? 'selected' : ''}>INT</option>
+                        <option value="WIS" ${data.scaleStat === 'WIS' ? 'selected' : ''}>WIS</option>
+                        <option value="CHA" ${data.scaleStat === 'CHA' ? 'selected' : ''}>CHA</option>
+                    </select>
+                    <input type="text" placeholder="Dmg Dice (e.g. 3d8)" value="${data.dmgDice || ''}" class="sub-dice col-span-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono text-amber-300">
+                </div>
+                <textarea rows="2" placeholder="Sub-skill mechanical effect..." class="sub-effect w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white">${data.effect || ''}</textarea>
+            `;
+            container.appendChild(div);
+        }
+
+        function saveSkillFromModal() {
+            const id = document.getElementById('editSkillId').value;
+            const scope = document.getElementById('editSkillScope').value;
+            const name = document.getElementById('skillNameInput').value.trim();
+            if (!name) return;
+
+            const subRows = Array.from(document.querySelectorAll('#subSkillsRowsContainer .sub-skill-row')).map(r => ({
+                name: r.querySelector('.sub-name').value.trim(),
+                cost: r.querySelector('.sub-cost').value.trim(),
+                scaleStat: r.querySelector('.sub-stat').value,
+                dmgDice: r.querySelector('.sub-dice').value.trim(),
+                effect: r.querySelector('.sub-effect').value.trim()
+            })).filter(s => s.name);
+
+            const skillObj = {
+                id: id || ('skill_' + Date.now()),
+                name,
+                tier: document.getElementById('skillTierInput').value,
+                type: document.getElementById('skillTypeInput').value,
+                mcNumber: parseInt(document.getElementById('skillMcNumberInput').value) || 0,
+                scaleStat: document.getElementById('skillScaleStatInput').value,
+                addProf: document.getElementById('skillAddProfInput').value === 'true',
+                dmgDice: document.getElementById('skillDmgDiceInput').value.trim(),
+                flatBonus: parseInt(document.getElementById('skillFlatBonusInput').value) || 0,
+                costText: document.getElementById('skillCostTextInput').value.trim(),
+                affinity: document.getElementById('skillAffinityInput').value.trim(),
+                effect: document.getElementById('skillEffectInput').value.trim(),
+                evolution: document.getElementById('skillEvolutionInput').value.trim(),
+                origin: document.getElementById('apexOriginInput').value.trim(),
+                passive: document.getElementById('apexPassiveInput').value.trim(),
+                subSkills: subRows,
+                trump: document.getElementById('apexTrumpInput').value.trim()
+            };
+
+            if (scope === 'compendium') {
+                const idx = compendiumSkills.findIndex(s => s.id === id);
+                if (idx >= 0) compendiumSkills[idx] = skillObj;
+                else compendiumSkills.unshift(skillObj);
+            } else {
+                const char = getActiveChar();
+                const idx = char.skills.findIndex(s => s.id === id);
+                if (idx >= 0) char.skills[idx] = skillObj;
+                else char.skills.unshift(skillObj);
+            }
+
+            closeSkillModal();
+            saveState();
+            renderAll();
+        }
+
+        // ==========================================
+        // TAB 3 & 4B: INVENTORY & WORLD ITEM LEDGER
+        // ==========================================
+        function claimSoulDevourMc(addToMax) {
+            const char = getActiveChar();
+            if (!char) return;
+            const baseMc = parseInt(document.getElementById('devourBaseMc').value) || 0;
+            const bonusMc = parseInt(document.getElementById('devourBonusMc').value) || 0;
+            const total = baseMc + bonusMc;
+            if (total <= 0) return;
+
+            if (addToMax) {
+                char.maxMc = (parseInt(char.maxMc) || 0) + total;
+                char.currMc = (parseInt(char.currMc) || 0) + total;
+            } else {
+                char.currMc = Math.min(char.maxMc, (parseInt(char.currMc) || 0) + total);
+            }
+            saveState();
+            renderAll();
+            showSageNotice(
+                '《 SOUL DEVOUR COMPLETE 》',
+                addToMax
+                    ? `Permanently absorbed <strong>+${total.toLocaleString()} MC</strong> into <strong>${char.name}</strong>'s Max & Current Magicule Pool!`
+                    : `Recovered <strong>+${total.toLocaleString()} MC</strong> to <strong>${char.name}</strong>'s Current Magicule Pool.`
+            );
+        }
+
+        function updateCurrency(key, val) {
+            const char = getActiveChar();
+            if (!char) return;
+            if (!char.currency) char.currency = {};
+            char.currency[key] = parseInt(val) || 0;
+            saveState();
+        }
+
+        function renderItemCardHtml(item, scope) {
+            const btns = scope === 'personal'
+                ? `<div class="flex items-center space-x-1">
+                        <button onclick="openItemModal('${item.id}', 'personal')" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deletePersonalItem('${item.id}')" class="p-1.5 rounded-lg bg-rose-950/60 text-rose-300 text-xs"><i class="fa-solid fa-trash"></i></button>
+                   </div>`
+                : `<div class="flex items-center space-x-1">
+                        <button onclick="claimItemFromCompendium('${item.id}')" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-[11px] px-2.5 py-1 rounded-lg">+ Claim to Stomach</button>
+                        <button onclick="openItemModal('${item.id}', 'compendium')" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteCompendiumItem('${item.id}')" class="p-1.5 rounded-lg bg-rose-950/60 text-rose-300 text-xs"><i class="fa-solid fa-trash"></i></button>
+                   </div>`;
+
+            return `
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-1.5">
+                <div class="flex items-center justify-between gap-2">
+                    <div>
+                        <span class="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/30">${item.grade || 'Normal'}</span>
+                        <span class="text-[10px] font-mono text-slate-400 ml-1">${item.category || 'Gear'}</span>
+                        <h4 class="text-xs font-extrabold text-white mt-0.5">${item.name} <span class="text-cyan-400 font-mono">x${item.qty || 1}</span></h4>
+                    </div>
+                    ${btns}
+                </div>
+                <p class="text-xs text-slate-300">${item.desc || ''}</p>
+                ${buildScalingRollButtonsHtml(item.name, item.scaleStat, item.addProf, item.dmgDice, item.flatBonus)}
+            </div>`;
+        }
+
+        function renderInventory() {
+            const char = getActiveChar();
+            if (!char) return;
+            const list = char.inventory || [];
+            const container = document.getElementById('inventoryListContainer');
+            container.innerHTML = list.length
+                ? list.map(it => renderItemCardHtml(it, 'personal')).join('')
+                : `<div class="text-center py-6 text-xs text-slate-500">Sub-Space Stomach is empty.</div>`;
+        }
+
+        function renderCompendiumItems() {
+            const q = (document.getElementById('compItemSearch').value || '').toLowerCase();
+            const list = compendiumItems.filter(it => {
+                const matchesCat = currentCompItemCatFilter === 'ALL' || it.category === currentCompItemCatFilter;
+                const matchesQ = it.name.toLowerCase().includes(q) || (it.desc || '').toLowerCase().includes(q);
+                return matchesCat && matchesQ;
+            });
+            document.getElementById('compendiumItemsContainer').innerHTML = list.map(it => renderItemCardHtml(it, 'compendium')).join('');
+        }
+
+        function setCompItemCatFilter(cat) {
+            currentCompItemCatFilter = cat;
+            renderCompendiumItems();
+        }
+
+        function claimItemFromCompendium(itemId) {
+            const char = getActiveChar();
+            const it = compendiumItems.find(i => i.id === itemId);
+            if (!char || !it) return;
+            const copy = JSON.parse(JSON.stringify(it));
+            copy.id = 'pitem_' + Date.now();
+            char.inventory.push(copy);
+            saveState();
+            renderAll();
+            showSageNotice('《 ITEM STORED IN STOMACH 》', `Added <strong>${it.name}</strong> to <strong>${char.name}</strong>'s inventory.`);
+        }
+
+        function deletePersonalItem(id) {
+            const char = getActiveChar();
+            char.inventory = char.inventory.filter(i => i.id !== id);
+            saveState();
+            renderInventory();
+        }
+
+        function deleteCompendiumItem(id) {
+            compendiumItems = compendiumItems.filter(i => i.id !== id);
+            saveState();
+            renderCompendiumItems();
+        }
+
+        function openItemModal(itemId, scope) {
+            document.getElementById('editItemId').value = itemId || '';
+            document.getElementById('editItemScope').value = scope || 'personal';
+            const list = scope === 'compendium' ? compendiumItems : (getActiveChar().inventory || []);
+            const ex = itemId ? list.find(i => i.id === itemId) : null;
+
+            document.getElementById('itemNameInput').value = ex ? ex.name : '';
+            document.getElementById('itemQtyInput').value = ex ? (ex.qty || 1) : 1;
+            document.getElementById('itemCatInput').value = ex ? (ex.category || 'Weapon') : 'Weapon';
+            document.getElementById('itemGradeInput').value = ex ? (ex.grade || 'Rare') : 'Rare';
+            document.getElementById('itemScaleStatInput').value = ex ? (ex.scaleStat || 'NONE') : 'NONE';
+            document.getElementById('itemAddProfInput').value = ex && ex.addProf === false ? 'false' : 'true';
+            document.getElementById('itemDmgDiceInput').value = ex ? (ex.dmgDice || '') : '';
+            document.getElementById('itemFlatBonusInput').value = ex ? (ex.flatBonus || 0) : 0;
+            document.getElementById('itemDescInput').value = ex ? (ex.desc || '') : '';
+
+            document.getElementById('itemModal').classList.remove('hidden');
+        }
+
+        function closeItemModal() {
+            document.getElementById('itemModal').classList.add('hidden');
+        }
+
+        function saveItemFromModal() {
+            const id = document.getElementById('editItemId').value;
+            const scope = document.getElementById('editItemScope').value;
+            const name = document.getElementById('itemNameInput').value.trim();
+            if (!name) return;
+
+            const obj = {
+                id: id || ('item_' + Date.now()),
+                name,
+                qty: parseInt(document.getElementById('itemQtyInput').value) || 1,
+                category: document.getElementById('itemCatInput').value,
+                grade: document.getElementById('itemGradeInput').value,
+                scaleStat: document.getElementById('itemScaleStatInput').value,
+                addProf: document.getElementById('itemAddProfInput').value === 'true',
+                dmgDice: document.getElementById('itemDmgDiceInput').value.trim(),
+                flatBonus: parseInt(document.getElementById('itemFlatBonusInput').value) || 0,
+                desc: document.getElementById('itemDescInput').value.trim()
+            };
+
+            if (scope === 'compendium') {
+                const idx = compendiumItems.findIndex(i => i.id === id);
+                if (idx >= 0) compendiumItems[idx] = obj;
+                else compendiumItems.unshift(obj);
+            } else {
+                const char = getActiveChar();
+                const idx = char.inventory.findIndex(i => i.id === id);
+                if (idx >= 0) char.inventory[idx] = obj;
+                else char.inventory.unshift(obj);
+            }
+            closeItemModal();
+            saveState();
+            renderAll();
+        }
+
+        // ==========================================
+        // TAB 5: PARTY ROSTER
+        // ==========================================
+        function renderPartyRoster() {
+            const container = document.getElementById('partyRosterContainer');
+            container.innerHTML = characters.map(c => {
+                normalizeCharacterClasses(c);
+                return `
+                <div class="bg-slate-900/90 border ${c.id === activeCharId ? 'border-cyan-400' : 'border-slate-800'} rounded-2xl p-3.5 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-950 text-cyan-300">Lv.${c.level} • ${formatClassesSummary(c, true)}</span>
+                            <h4 class="text-sm font-extrabold text-white mt-1">${c.name} <span class="text-xs font-normal text-slate-400">(${c.race})</span></h4>
+                        </div>
+                        <button onclick="switchCharacter('${c.id}')" class="text-xs font-extrabold px-3 py-1.5 rounded-xl ${c.id === activeCharId ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-cyan-300 hover:bg-slate-700'}">
+                            ${c.id === activeCharId ? 'Active HUD' : 'Switch To'}
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center font-mono text-xs pt-1">
+                        <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                            <span class="hud-label block">HP</span>
+                            <span class="text-emerald-400 font-bold">${c.currHp}/${c.maxHp}</span>
+                        </div>
+                        <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                            <span class="hud-label block">MC</span>
+                            <span class="text-cyan-300 font-bold">${(c.currMc || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                            <span class="hud-label block">SKILLS</span>
+                            <span class="text-purple-300 font-bold">${(c.skills || []).length}</span>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // ==========================================
+        // NAVIGATION, CHARACTER SWITCHER & STORAGE
+        // ==========================================
+        function switchTab(tabName) {
+            const tabs = ['stats', 'skills', 'inventory', 'compendium', 'party', 'npcs'];
+            tabs.forEach(t => {
+                const sec = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`nav-${t}`);
+                if (sec) sec.classList.toggle('hidden', t !== tabName);
+                if (btn) {
+                    btn.className = t === tabName
+                        ? 'flex flex-col items-center justify-center py-1.5 rounded-xl text-cyan-300 bg-cyan-950/60 border border-cyan-500/40 transition'
+                        : 'flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-400 hover:text-slate-200 transition';
+                }
+            });
+        }
+
+        function switchCompendiumSubTab(sub) {
+            const isSkills = sub === 'skills';
+            document.getElementById('compendium-skills-view').classList.toggle('hidden', !isSkills);
+            document.getElementById('compendium-items-view').classList.toggle('hidden', isSkills);
+            document.getElementById('compSubBtn-skills').className = isSkills
+                ? 'px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-cyan-500 text-slate-950 transition flex items-center space-x-1.5'
+                : 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center space-x-1.5';
+            document.getElementById('compSubBtn-items').className = !isSkills
+                ? 'px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-amber-400 text-slate-950 transition flex items-center space-x-1.5'
+                : 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center space-x-1.5';
+        }
+
+        function switchCharacter(id) {
+            activeCharId = id;
+            saveState();
+            renderAll();
+        }
+
+        function openCharModal() { document.getElementById('charModal').classList.remove('hidden'); }
+        function closeCharModal() { document.getElementById('charModal').classList.add('hidden'); }
+
+        function createNewCharacter() {
+            const name = document.getElementById('newCharName').value.trim() || 'Unnamed Majin';
+            const race = document.getElementById('newCharRace').value.trim() || 'Monster';
+            const role = document.getElementById('newCharRole').value || 'Fighter';
+            const newChar = createDefaultCharacter();
+            newChar.id = 'char_' + Date.now();
+            newChar.name = name;
+            newChar.race = race;
+            newChar.role = role;
+            newChar.level = 1;
+            newChar.classes = { [role]: 1 };
+            newChar.currMc = 1000;
+            newChar.maxMc = 1000;
+            newChar.skills = [];
+            newChar.inventory = [];
+            recalculateCharacterAutoStats(newChar);
+            newChar.currHp = newChar.maxHp;
+
+            characters.push(newChar);
+            activeCharId = newChar.id;
+            closeCharModal();
+            saveState();
+            renderAll();
+            showSageNotice('《 REINCARNATION COMPLETE 》', `Created new character sheet for <strong>${name}</strong> (Lv.1 ${role})!`);
+        }
+
+        function deleteActiveCharacter() {
+            if (characters.length <= 1) {
+                showSageNotice('Action Blocked', 'You must keep at least 1 Party Member in the roster.');
+                return;
+            }
+            characters = characters.filter(c => c.id !== activeCharId);
+            activeCharId = characters[0].id;
+            closeCharModal();
+            saveState();
+            renderAll();
+        }
+
+        function openCampaignModal() {
+            document.getElementById('campaignCodeInput').value = currentRoomCode;
+            document.getElementById('campaignModal').classList.remove('hidden');
+        }
+
+        function closeCampaignModal() {
+            document.getElementById('campaignModal').classList.add('hidden');
+        }
+
+        function joinCampaignRoom() {
+            const code = (document.getElementById('campaignCodeInput').value || 'JURA-77').trim().toUpperCase();
+            currentRoomCode = code;
+            document.getElementById('headerRoomCode').textContent = code;
+            document.getElementById('compendiumRoomBadge').textContent = `ROOM: ${code}`;
+            document.getElementById('partyRoomLabel').textContent = code;
+            document.getElementById('npcRoomBadge').textContent = `ROOM: ${code}`;
+            closeCampaignModal();
+            loadState();
+            renderAll();
+            showSageNotice('《 THOUGHT COMMUNICATION LINKED 》', `Synced local ledger with Campaign Room <strong>${code}</strong>.`);
+        }
+
+        function openSettingsModal() {
+            exportCampaignJson(false);
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function exportCampaignJson(copyToClipboard = true) {
+            const payload = {
+                roomCode: currentRoomCode,
+                activeCharId,
+                characters,
+                compendiumSkills,
+                compendiumItems,
+                campaignNpcs
+            };
+            const area = document.getElementById('jsonBackupArea');
+            area.value = JSON.stringify(payload, null, 2);
+            if (copyToClipboard) {
+                area.select();
+                document.execCommand('copy');
+                showSageNotice('《 ARCHIVE COPIED 》', 'Campaign & Character JSON backup copied to clipboard!');
+            }
+        }
+
+        function importCampaignJson() {
+            try {
+                const raw = document.getElementById('jsonBackupArea').value.trim();
+                if (!raw) return;
+                const parsed = JSON.parse(raw);
+                if (parsed.characters && Array.isArray(parsed.characters)) characters = parsed.characters;
+                if (parsed.compendiumSkills && Array.isArray(parsed.compendiumSkills)) compendiumSkills = parsed.compendiumSkills;
+                if (parsed.compendiumItems && Array.isArray(parsed.compendiumItems)) compendiumItems = parsed.compendiumItems;
+                if (parsed.campaignNpcs && Array.isArray(parsed.campaignNpcs)) campaignNpcs = parsed.campaignNpcs;
+                if (parsed.activeCharId) activeCharId = parsed.activeCharId;
+                saveState();
+                closeSettingsModal();
+                renderAll();
+                showSageNotice('《 ARCHIVE RESTORED 》', 'Successfully loaded Campaign & Character backup!');
+            } catch (err) {
+                showSageNotice('Import Error', 'Invalid JSON format. Please check the backup text and try again.');
+            }
+        }
+
+        function createDefaultCharacter() {
+            return {
+                id: 'char_rimuru',
+                isNpc: false,
+                name: 'Rimuru Tempest',
+                race: 'Demon Slime',
+                role: 'Mage',
+                level: 5,
+                classes: { Mage: 3, Fighter: 2 },
+                autoHp: true,
+                currHp: 85,
+                maxHp: 85,
+                bonusHp: 0,
+                tempHp: 0,
+                ac: 18,
+                speed: '35ft',
+                currMc: 95000,
+                maxMc: 100000,
+                upkeepMc: 50,
+                affinities: 'Spatial, Void, Black Lightning, Water',
+                deathSaves: { s1: false, s2: false, s3: false, f1: false, f2: false, f3: false },
+                stats: { STR: 14, DEX: 18, CON: 16, INT: 20, WIS: 18, CHA: 16 },
+                saveProfs: { STR: false, DEX: false, CON: true, INT: true, WIS: true, CHA: false },
+                dndSkills: { arcana: 2, perception: 2, insight: 1, persuasion: 1, stealth: 1 },
+                currency: { gold: 450, magisteel: 12, cores: 5, herbs: 18 },
+                skills: [
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS[2])),
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS[4])),
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS[6]))
+                ],
+                inventory: [
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_ITEMS[0])),
+                    JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_ITEMS[3]))
+                ]
+            };
+        }
+
+        let currentRoomCode = 'JURA-77';
+        let characters = [createDefaultCharacter()];
+        let activeCharId = 'char_rimuru';
+        let compendiumSkills = JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_SKILLS));
+        let compendiumItems = JSON.parse(JSON.stringify(DEFAULT_COMPENDIUM_ITEMS));
+        let campaignNpcs = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_NPCS));
+
+        let currentSkillTierFilter = 'ALL';
+        let currentCompSkillTierFilter = 'ALL';
+        let currentCompItemCatFilter = 'ALL';
+        let currentNpcFilter = 'ALL';
+
+        function getStorageKey() {
+            return `tensura_hud_state_${currentRoomCode}`;
+        }
+
+        function saveState() {
+            try {
+                const payload = {
+                    roomCode: currentRoomCode,
+                    activeCharId,
+                    characters,
+                    compendiumSkills,
+                    compendiumItems,
+                    campaignNpcs
+                };
+                localStorage.setItem(getStorageKey(), JSON.stringify(payload));
+                const dot = document.getElementById('cloudStatusDot');
+                if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+            } catch (e) {
+                console.warn('Could not save state to localStorage:', e);
+            }
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(getStorageKey());
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed.characters && parsed.characters.length) characters = parsed.characters;
+                    if (parsed.compendiumSkills && parsed.compendiumSkills.length) compendiumSkills = parsed.compendiumSkills;
+                    if (parsed.compendiumItems && parsed.compendiumItems.length) compendiumItems = parsed.compendiumItems;
+                    if (parsed.campaignNpcs && parsed.campaignNpcs.length) campaignNpcs = parsed.campaignNpcs;
+                    if (parsed.activeCharId) activeCharId = parsed.activeCharId;
+                }
+            } catch (e) {
+                console.warn('Could not load state from localStorage:', e);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            renderAll();
+        });
+    </script>
+</body>
+</html>
