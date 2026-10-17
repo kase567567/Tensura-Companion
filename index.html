@@ -390,7 +390,7 @@
                     <button onclick="setSkillTierFilter('ALL')" id="filter-ALL" class="tier-pill px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-slate-950 shrink-0">All Tiers</button>
                     <button onclick="setSkillTierFilter('Intrinsic')" id="filter-Intrinsic" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-emerald-300 border border-emerald-500/30 shrink-0">Intrinsic</button>
                     <button onclick="setSkillTierFilter('Common')" id="filter-Common" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-sky-300 border border-sky-500/30 shrink-0">Common</button>
-                    <button onclick="setSkillTierFilter('Extra')" id="filter-Extra" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-cyan-300 border border-cyan-500/30 shrink-0">Extra</button>
+                    <button onclick="setSkillTierFilter('Extra')" id="filter-Extra" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-cyan-300 border border-cyan-500/40 shrink-0">Extra</button>
                     <button onclick="setSkillTierFilter('Unique')" id="filter-Unique" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-purple-300 border border-purple-500/40 shrink-0">★ Unique</button>
                     <button onclick="setSkillTierFilter('Ultimate')" id="filter-Ultimate" class="tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-amber-300 border border-amber-500/50 shrink-0">✦ Ultimate</button>
                 </div>
@@ -529,7 +529,7 @@
                             <button onclick="setCompSkillTierFilter('ALL')" id="cfilter-ALL" class="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-cyan-400 text-slate-950 shrink-0">All Tiers</button>
                             <button onclick="setCompSkillTierFilter('Intrinsic')" id="cfilter-Intrinsic" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-emerald-300 border border-emerald-500/30 shrink-0">Intrinsic</button>
                             <button onclick="setCompSkillTierFilter('Common')" id="cfilter-Common" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-sky-300 border border-sky-500/30 shrink-0">Common</button>
-                            <button onclick="setCompSkillTierFilter('Extra')" id="cfilter-Extra" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-cyan-300 border border-cyan-500/30 shrink-0">Extra</button>
+                            <button onclick="setCompSkillTierFilter('Extra')" id="cfilter-Extra" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-cyan-300 border border-cyan-500/40 shrink-0">Extra</button>
                             <button onclick="setCompSkillTierFilter('Unique')" id="cfilter-Unique" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-purple-300 border border-purple-500/40 shrink-0">★ Unique</button>
                             <button onclick="setCompSkillTierFilter('Ultimate')" id="cfilter-Ultimate" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-amber-300 border border-amber-500/50 shrink-0">✦ Ultimate</button>
                         </div>
@@ -1133,7 +1133,7 @@
         </div>
     </div>
 
-    <!-- Firebase SDK Imports -->
+    <!-- Firebase SDK & App Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -1151,6 +1151,7 @@
 
         let app, db, auth, currentUser = null;
         let isSyncing = false;
+        let unsubscribeRoom = null;
 
         window.initFirebase = async function() {
             try {
@@ -1158,19 +1159,21 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
                 onAuthStateChanged(auth, (user) => {
                     currentUser = user;
                     if (user) {
                         document.getElementById('cloudStatusDot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
                         setupCloudListener();
+                    } else {
+                        document.getElementById('cloudStatusDot').className = 'w-1.5 h-1.5 rounded-full bg-amber-400';
                     }
                 });
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
             } catch (e) {
                 console.warn("Offline fallback mode active:", e);
                 document.getElementById('cloudStatusDot').className = 'w-1.5 h-1.5 rounded-full bg-amber-400';
@@ -1187,7 +1190,11 @@
             const docRef = getRoomDocRef();
             if (!docRef) return;
 
-            onSnapshot(docRef, (docSnap) => {
+            if (unsubscribeRoom) {
+                unsubscribeRoom();
+            }
+
+            unsubscribeRoom = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists() && !isSyncing) {
                     const data = docSnap.data();
                     if (data.characters) characters = data.characters;
@@ -1202,6 +1209,7 @@
                 }
             }, (error) => {
                 console.error("Firestore sync error:", error);
+                document.getElementById('cloudStatusDot').className = 'w-1.5 h-1.5 rounded-full bg-amber-400';
             });
         };
 
@@ -2610,6 +2618,7 @@
             }
             loadLocalStorage();
             renderAll();
+            closeCampaignModal();
         }
 
         window.exportCampaignJson = function(copyToClipboard = true) {
