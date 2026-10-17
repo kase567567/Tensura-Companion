@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -95,13 +96,13 @@
                     <div class="flex items-center space-x-1.5">
                         <h1 class="text-sm font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-sky-400">RAPHAEL HUD</h1>
                         <button onclick="openCampaignModal()" class="flex items-center space-x-1 text-[10px] font-mono bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded-md border border-cyan-500/50 transition" title="Change Campaign Join Code">
-                            <span id="cloudStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            <span id="cloudStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                             <span>ROOM:</span>
                             <strong id="headerRoomCode" class="text-white">JURA-77</strong>
                             <i class="fa-solid fa-pen-to-square text-[9px] ml-0.5 text-cyan-400"></i>
                         </button>
                     </div>
-                    <p class="text-[10px] text-slate-400 tracking-wider uppercase">Voice of the World • Tabletop Sync</p>
+                    <p class="text-[10px] text-slate-400 tracking-wider uppercase">Voice of the World • Cloud Sync Active</p>
                 </div>
             </div>
 
@@ -503,11 +504,11 @@
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
                     <div>
                         <div class="flex items-center space-x-2">
-                            <span class="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">SHARED CAMPAIGN ARCHIVE</span>
+                            <span class="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">SHARED CLOUD ARCHIVE</span>
                             <span id="compendiumRoomBadge" class="text-[10px] font-mono text-amber-300">ROOM: JURA-77</span>
                         </div>
                         <h3 class="text-base font-extrabold text-white mt-1">Voice of the World: Master Compendium</h3>
-                        <p class="text-xs text-slate-400">DM & Players can forge custom campaign Skills & Items here. Players can 1-tap claim them directly to their character sheet!</p>
+                        <p class="text-xs text-slate-400">DM & Players can forge custom campaign Skills & Items here. Instantly syncs across all connected player devices!</p>
                     </div>
                     <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
                         <button onclick="switchCompendiumSubTab('skills')" id="compSubBtn-skills" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-cyan-500 text-slate-950 transition flex items-center space-x-1.5">
@@ -1069,7 +1070,7 @@
                 <button onclick="closeCampaignModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <p class="text-xs text-slate-300 leading-relaxed">
-                Enter the same <strong>Campaign Room Code</strong> to share your live <strong>World Compendium</strong> and <strong>Party Roster</strong>!
+                Enter the same <strong>Campaign Room Code</strong> to share your live <strong>World Compendium</strong> and <strong>Party Roster</strong> in real-time!
             </p>
             <div>
                 <label class="hud-label block mb-1">Campaign Room Code</label>
@@ -1132,7 +1133,102 @@
         </div>
     </div>
 
-    <script>
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'tensura-campaign-default';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDummyKeyForStaticPreviewOnly",
+            authDomain: "tensura-campaign.firebaseapp.com",
+            projectId: "tensura-campaign",
+            storageBucket: "tensura-campaign.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+
+        let app, db, auth, currentUser = null;
+        let isSyncing = false;
+
+        window.initFirebase = async function() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    if (user) {
+                        document.getElementById('cloudStatusDot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+                        setupCloudListener();
+                    }
+                });
+            } catch (e) {
+                console.warn("Offline fallback mode active:", e);
+                document.getElementById('cloudStatusDot').className = 'w-1.5 h-1.5 rounded-full bg-amber-400';
+            }
+        };
+
+        function getRoomDocRef() {
+            if (!db) return null;
+            // RULE 1: STRICT PATHS
+            return doc(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomCode}`);
+        }
+
+        window.setupCloudListener = function() {
+            const docRef = getRoomDocRef();
+            if (!docRef) return;
+
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists() && !isSyncing) {
+                    const data = docSnap.data();
+                    if (data.characters) characters = data.characters;
+                    if (data.compendiumSkills) compendiumSkills = data.compendiumSkills;
+                    if (data.compendiumItems) compendiumItems = data.compendiumItems;
+                    if (data.campaignNpcs) campaignNpcs = data.campaignNpcs;
+                    
+                    if (!characters.some(c => c.id === activeCharId) && !campaignNpcs.some(n => n.id === activeCharId)) {
+                        activeCharId = characters[0]?.id || campaignNpcs[0]?.id;
+                    }
+                    renderAll();
+                }
+            }, (error) => {
+                console.error("Firestore sync error:", error);
+            });
+        };
+
+        window.saveCloudState = async function() {
+            const docRef = getRoomDocRef();
+            if (!docRef || !currentUser) {
+                saveLocalStorage();
+                return;
+            }
+            isSyncing = true;
+            try {
+                await setDoc(docRef, {
+                    roomCode: currentRoomCode,
+                    characters,
+                    compendiumSkills,
+                    compendiumItems,
+                    campaignNpcs,
+                    lastUpdated: Date.now()
+                }, { merge: true });
+            } catch (e) {
+                console.error("Failed to save to cloud:", e);
+                saveLocalStorage();
+            } finally {
+                setTimeout(() => { isSyncing = false; }, 300);
+            }
+        };
+
         const TENSURA_CLASSES = {
             Fighter: { icon: '⚔️', hitDie: 10, avgHpPerLvl: 6, primary: 'STR', saves: ['STR', 'DEX'], desc: 'Weapon Masters & Vanguard Strikers' },
             Tank:    { icon: '🛡️', hitDie: 12, avgHpPerLvl: 7, primary: 'CON', saves: ['CON', 'STR'], desc: 'Juggernauts & Iron Wall Defenders' },
@@ -1377,7 +1473,7 @@
             }
         }
 
-        function renderAll() {
+        window.renderAll = function() {
             const char = getActiveChar();
             if (!char) return;
             recalculateCharacterAutoStats(char);
@@ -1488,7 +1584,7 @@
             }
         }
 
-        function renderPartyRoster() {
+        window.renderPartyRoster = function() {
             const container = document.getElementById('partyRosterContainer');
             if (!container) return;
             container.innerHTML = characters.map(c => {
@@ -1522,7 +1618,7 @@
             }).join('');
         }
 
-        function renderNpcs() {
+        window.renderNpcs = function() {
             const q = (document.getElementById('npcSearchInput')?.value || '').toLowerCase();
             const container = document.getElementById('npcsContainer');
             if (!container) return;
@@ -1569,7 +1665,7 @@
             }).join('');
         }
 
-        function setNpcFilter(cat) {
+        window.setNpcFilter = function(cat) {
             currentNpcFilter = cat;
             document.querySelectorAll('[id^="npcfilter-"]').forEach(b => {
                 b.className = b.id === `npcfilter-${cat}` ? 'px-3 py-1 rounded-lg text-xs font-extrabold bg-cyan-400 text-slate-950 shrink-0' : 'px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-800 shrink-0';
@@ -1577,7 +1673,7 @@
             renderNpcs();
         }
 
-        function openNpcModal(npcId) {
+        window.openNpcModal = function(npcId) {
             document.getElementById('editNpcId').value = npcId || '';
             const existing = npcId ? campaignNpcs.find(n => n.id === npcId) : null;
             document.getElementById('npcNameInput').value = existing ? existing.name : '';
@@ -1602,11 +1698,11 @@
             document.getElementById('npcModal').classList.remove('hidden');
         }
 
-        function closeNpcModal() {
+        window.closeNpcModal = function() {
             document.getElementById('npcModal').classList.add('hidden');
         }
 
-        function saveNpcFromModal(assumeNow) {
+        window.saveNpcFromModal = function(assumeNow) {
             const id = document.getElementById('editNpcId').value;
             const name = document.getElementById('npcNameInput').value.trim();
             if (!name) return;
@@ -1679,23 +1775,23 @@
             renderAll();
         }
 
-        function deleteNpc(id) {
+        window.deleteNpc = function(id) {
             campaignNpcs = campaignNpcs.filter(n => n.id !== id);
             if (activeCharId === id) activeCharId = characters[0].id;
             saveState();
             renderAll();
         }
 
-        function openClassModal() {
+        window.openClassModal = function() {
             renderClassModalContent();
             document.getElementById('classModal').classList.remove('hidden');
         }
 
-        function closeClassModal() {
+        window.closeClassModal = function() {
             document.getElementById('classModal').classList.add('hidden');
         }
 
-        function renderClassModalContent() {
+        window.renderClassModalContent = function() {
             const char = getActiveChar();
             if (!char) return;
             normalizeCharacterClasses(char);
@@ -1732,7 +1828,7 @@
             }).join('');
         }
 
-        function adjustClassLevel(clsKey, delta) {
+        window.adjustClassLevel = function(clsKey, delta) {
             const char = getActiveChar();
             if (!char || !TENSURA_CLASSES[clsKey]) return;
             normalizeCharacterClasses(char);
@@ -1763,7 +1859,7 @@
             }
         }
 
-        function toggleAutoHp(checked) {
+        window.toggleAutoHp = function(checked) {
             const char = getActiveChar();
             if (!char) return;
             char.autoHp = checked;
@@ -1772,7 +1868,7 @@
             renderAll();
         }
 
-        function updateVitalsField(field, val) {
+        window.updateVitalsField = function(field, val) {
             const char = getActiveChar();
             if (!char) return;
             if (['ac', 'currHp', 'maxHp', 'bonusHp', 'tempHp', 'currMc', 'maxMc', 'upkeepMc'].includes(field)) {
@@ -1785,7 +1881,7 @@
             renderAll();
         }
 
-        function modifyHp(delta) {
+        window.modifyHp = function(delta) {
             const char = getActiveChar();
             if (!char) return;
             char.currHp = Math.max(0, Math.min(char.maxHp, (parseInt(char.currHp) || 0) + delta));
@@ -1793,7 +1889,7 @@
             renderAll();
         }
 
-        function modifyHpCustom(sign) {
+        window.modifyHpCustom = function(sign) {
             const el = document.getElementById('hpCustomDelta');
             const amt = parseInt(el.value) || 0;
             if (!amt) return;
@@ -1801,7 +1897,7 @@
             el.value = '';
         }
 
-        function modifyMc(delta) {
+        window.modifyMc = function(delta) {
             const char = getActiveChar();
             if (!char) return;
             char.currMc = Math.max(0, Math.min(char.maxMc, (parseInt(char.currMc) || 0) + delta));
@@ -1809,7 +1905,7 @@
             renderAll();
         }
 
-        function modifyMcCustom(sign) {
+        window.modifyMcCustom = function(sign) {
             const el = document.getElementById('mcCustomDelta');
             const amt = parseInt(el.value) || 0;
             if (!amt) return;
@@ -1817,14 +1913,14 @@
             el.value = '';
         }
 
-        function deductTurnUpkeep() {
+        window.deductTurnUpkeep = function() {
             const char = getActiveChar();
             if (!char) return;
             const up = parseInt(char.upkeepMc) || 0;
             modifyMc(-up);
         }
 
-        function saveDeathSaves() {
+        window.saveDeathSaves = function() {
             const char = getActiveChar();
             if (!char) return;
             char.deathSaves = {
@@ -1838,7 +1934,7 @@
             saveState();
         }
 
-        function takeShortRest() {
+        window.takeShortRest = function() {
             const char = getActiveChar();
             if (!char) return;
             const heal = Math.round(char.maxHp * 0.25);
@@ -1849,7 +1945,7 @@
             renderAll();
         }
 
-        function takeLongRest() {
+        window.takeLongRest = function() {
             const char = getActiveChar();
             if (!char) return;
             char.currHp = char.maxHp;
@@ -1860,7 +1956,7 @@
             renderAll();
         }
 
-        function claimSoulDevourMc(toMax) {
+        window.claimSoulDevourMc = function(toMax) {
             const char = getActiveChar();
             if (!char) return;
             const base = parseInt(document.getElementById('devourBaseMc').value) || 0;
@@ -1880,7 +1976,7 @@
             renderAll();
         }
 
-        function buildScalingRollButtonsHtml(itemName, scaleStat, addProf, dmgDice, flatBonus) {
+        window.buildScalingRollButtonsHtml = function(itemName, scaleStat, addProf, dmgDice, flatBonus) {
             const char = getActiveChar();
             if (!char) return '';
             const hasStat = scaleStat && scaleStat !== 'NONE';
@@ -1911,7 +2007,7 @@
             </div>`;
         }
 
-        function renderSkillCardHtml(sk, scope) {
+        window.renderSkillCardHtml = function(sk, scope) {
             const isApex = sk.tier === 'Unique' || sk.tier === 'Ultimate';
             const borderClass = sk.tier === 'Ultimate'
                 ? 'apex-ultimate-border bg-gradient-to-br from-slate-900 to-amber-950/20'
@@ -2004,7 +2100,7 @@
             }
         }
 
-        function renderItemCardHtml(item, scope) {
+        window.renderItemCardHtml = function(item, scope) {
             const btns = scope === 'personal'
                 ? `<div class="flex items-center space-x-1">
                         <button onclick="openItemModal('${item.id}', 'personal')" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"><i class="fa-solid fa-pen"></i></button>
@@ -2031,7 +2127,7 @@
             </div>`;
         }
 
-        function renderTensuraSkills() {
+        window.renderTensuraSkills = function() {
             const char = getActiveChar();
             if (!char) return;
             const q = (document.getElementById('tensuraSkillSearch').value || '').toLowerCase();
@@ -2045,7 +2141,7 @@
                 : `<div class="text-center py-8 text-xs text-slate-500">No acquired skills match this filter.</div>`;
         }
 
-        function renderCompendiumSkills() {
+        window.renderCompendiumSkills = function() {
             const q = (document.getElementById('compSkillSearch').value || '').toLowerCase();
             const list = compendiumSkills.filter(sk => {
                 const matchesTier = currentCompSkillTierFilter === 'ALL' || sk.tier === currentCompSkillTierFilter;
@@ -2055,7 +2151,7 @@
             document.getElementById('compendiumSkillsContainer').innerHTML = list.map(sk => renderSkillCardHtml(sk, 'compendium')).join('');
         }
 
-        function renderInventory() {
+        window.renderInventory = function() {
             const char = getActiveChar();
             if (!char) return;
             const list = char.inventory || [];
@@ -2064,7 +2160,7 @@
                 : `<div class="text-center py-6 text-xs text-slate-500">Sub-Space Stomach is empty.</div>`;
         }
 
-        function renderCompendiumItems() {
+        window.renderCompendiumItems = function() {
             const q = (document.getElementById('compItemSearch').value || '').toLowerCase();
             const list = compendiumItems.filter(it => {
                 const matchesCat = currentCompItemCatFilter === 'ALL' || it.category === currentCompItemCatFilter;
@@ -2074,7 +2170,7 @@
             document.getElementById('compendiumItemsContainer').innerHTML = list.map(it => renderItemCardHtml(it, 'compendium')).join('');
         }
 
-        function openSkillModal(skillId, scope) {
+        window.openSkillModal = function(skillId, scope) {
             document.getElementById('editSkillId').value = skillId || '';
             document.getElementById('editSkillScope').value = scope || 'personal';
             document.getElementById('skillModalTargetBadge').textContent = scope === 'compendium' ? 'Shared Compendium Skill' : 'Personal Skill';
@@ -2109,18 +2205,18 @@
             document.getElementById('skillModal').classList.remove('hidden');
         }
 
-        function closeSkillModal() {
+        window.closeSkillModal = function() {
             document.getElementById('skillModal').classList.add('hidden');
         }
 
-        function toggleSkillModalTemplate() {
+        window.toggleSkillModalTemplate = function() {
             const tier = document.getElementById('skillTierInput').value;
             const isApex = tier === 'Unique' || tier === 'Ultimate';
             document.getElementById('standardSkillFields').classList.toggle('hidden', isApex);
             document.getElementById('apexSkillFields').classList.toggle('hidden', !isApex);
         }
 
-        function addSubSkillRow(data = {}) {
+        window.addSubSkillRow = function(data = {}) {
             const container = document.getElementById('subSkillsRowsContainer');
             const div = document.createElement('div');
             div.className = 'sub-skill-row bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-1.5';
@@ -2134,7 +2230,7 @@
             container.appendChild(div);
         }
 
-        function saveSkillFromModal() {
+        window.saveSkillFromModal = function() {
             const id = document.getElementById('editSkillId').value;
             const scope = document.getElementById('editSkillScope').value;
             const name = document.getElementById('skillNameInput').value.trim();
@@ -2182,7 +2278,7 @@
             renderAll();
         }
 
-        function openItemModal(itemId, scope) {
+        window.openItemModal = function(itemId, scope) {
             document.getElementById('editItemId').value = itemId || '';
             document.getElementById('editItemScope').value = scope || 'personal';
             const list = scope === 'compendium' ? compendiumItems : (getActiveChar().inventory || []);
@@ -2201,11 +2297,11 @@
             document.getElementById('itemModal').classList.remove('hidden');
         }
 
-        function closeItemModal() {
+        window.closeItemModal = function() {
             document.getElementById('itemModal').classList.add('hidden');
         }
 
-        function saveItemFromModal() {
+        window.saveItemFromModal = function() {
             const id = document.getElementById('editItemId').value;
             const scope = document.getElementById('editItemScope').value;
             const name = document.getElementById('itemNameInput').value.trim();
@@ -2239,7 +2335,7 @@
             renderAll();
         }
 
-        function claimSkillFromCompendium(skillId) {
+        window.claimSkillFromCompendium = function(skillId) {
             const char = getActiveChar();
             if (!char) return;
             const sk = compendiumSkills.find(s => s.id === skillId);
@@ -2252,7 +2348,7 @@
             }
         }
 
-        function claimItemFromCompendium(itemId) {
+        window.claimItemFromCompendium = function(itemId) {
             const char = getActiveChar();
             if (!char) return;
             const item = compendiumItems.find(i => i.id === itemId);
@@ -2271,7 +2367,7 @@
             showSageNotice('Voice of the World', `Claimed item into Sub-Space Stomach: <strong class="text-amber-300">${item.name}</strong>!`);
         }
 
-        function deletePersonalSkill(id) {
+        window.deletePersonalSkill = function(id) {
             const char = getActiveChar();
             if (!char) return;
             char.skills = char.skills.filter(s => s.id !== id);
@@ -2279,13 +2375,13 @@
             renderAll();
         }
 
-        function deleteCompendiumSkill(id) {
+        window.deleteCompendiumSkill = function(id) {
             compendiumSkills = compendiumSkills.filter(s => s.id !== id);
             saveState();
             renderAll();
         }
 
-        function deletePersonalItem(id) {
+        window.deletePersonalItem = function(id) {
             const char = getActiveChar();
             if (!char) return;
             char.inventory = char.inventory.filter(i => i.id !== id);
@@ -2293,13 +2389,13 @@
             renderAll();
         }
 
-        function deleteCompendiumItem(id) {
+        window.deleteCompendiumItem = function(id) {
             compendiumItems = compendiumItems.filter(i => i.id !== id);
             saveState();
             renderAll();
         }
 
-        function castSkillMc(skillId) {
+        window.castSkillMc = function(skillId) {
             const char = getActiveChar();
             if (!char) return;
             const sk = char.skills.find(s => s.id === skillId);
@@ -2312,7 +2408,7 @@
             showSageNotice('Skill Cast', `Successfully cast <strong class="text-cyan-300">${sk.name}</strong> (-${sk.mcNumber} MC).`);
         }
 
-        function updateCurrency(key, val) {
+        window.updateCurrency = function(key, val) {
             const char = getActiveChar();
             if (!char) return;
             if (!char.currency) char.currency = { gold: 0, magisteel: 0, cores: 0, herbs: 0 };
@@ -2320,18 +2416,18 @@
             saveState();
         }
 
-        function showSageNotice(title, htmlContent) {
+        window.showSageNotice = function(title, htmlContent) {
             const toast = document.getElementById('sageToast');
             const body = document.getElementById('sageToastBody');
             body.innerHTML = `<div class="font-extrabold text-white text-sm mb-1">${title}</div>${htmlContent}`;
             toast.classList.remove('hidden');
         }
 
-        function closeSageToast() {
+        window.closeSageToast = function() {
             document.getElementById('sageToast').classList.add('hidden');
         }
 
-        function rollD20Check(label, totalMod, breakdownText) {
+        window.rollD20Check = function(label, totalMod, breakdownText) {
             const d20 = Math.floor(Math.random() * 20) + 1;
             const total = d20 + totalMod;
             showSageNotice(
@@ -2344,14 +2440,14 @@
             );
         }
 
-        function rollInitiative() {
+        window.rollInitiative = function() {
             const char = getActiveChar();
             if (!char) return;
             const dexMod = getStatMod(char.stats.DEX);
             rollD20Check(`${char.name} • Initiative Roll`, dexMod, `DEX Mod (${formatSigned(dexMod)})`);
         }
 
-        function rollScaledToHit(name, scaleStat, addProf, flatBonus) {
+        window.rollScaledToHit = function(name, scaleStat, addProf, flatBonus) {
             const char = getActiveChar();
             if (!char) return;
             const statMod = (scaleStat && scaleStat !== 'NONE') ? getStatMod(char.stats[scaleStat]) : 0;
@@ -2360,7 +2456,7 @@
             rollD20Check(`${name} • Attack Roll`, statMod + prof + flat, `${scaleStat} ${formatSigned(statMod)} • Prof ${formatSigned(prof)}`);
         }
 
-        function rollScaledDamage(name, dmgDice, scaleStat, flatBonus, isCrit) {
+        window.rollScaledDamage = function(name, dmgDice, scaleStat, flatBonus, isCrit) {
             const char = getActiveChar();
             if (!char) return;
             const match = (dmgDice || '1d6').trim().match(/^(\d+)d(\d+)$/i);
@@ -2376,7 +2472,7 @@
             );
         }
 
-        function renderAbilitiesAndSaves() {
+        window.renderAbilitiesAndSaves = function() {
             const char = getActiveChar();
             if (!char) return;
             const prof = getProfBonus(char.level);
@@ -2404,7 +2500,7 @@
             }).join('');
         }
 
-        function updateAbilityScore(stat, val) {
+        window.updateAbilityScore = function(stat, val) {
             const char = getActiveChar();
             if (!char) return;
             char.stats[stat] = parseInt(val) || 10;
@@ -2413,7 +2509,7 @@
             renderAll();
         }
 
-        function toggleSaveProf(stat) {
+        window.toggleSaveProf = function(stat) {
             const char = getActiveChar();
             if (!char) return;
             char.saveProfs[stat] = !char.saveProfs[stat];
@@ -2421,7 +2517,7 @@
             renderAll();
         }
 
-        function renderDndSkills() {
+        window.renderDndSkills = function() {
             const char = getActiveChar();
             if (!char) return;
             const prof = getProfBonus(char.level);
@@ -2447,7 +2543,7 @@
             }).join('');
         }
 
-        function cycleDndSkillProf(skillId) {
+        window.cycleDndSkillProf = function(skillId) {
             const char = getActiveChar();
             if (!char) return;
             if (!char.dndSkills) char.dndSkills = {};
@@ -2456,7 +2552,7 @@
             renderDndSkills();
         }
 
-        function switchTab(tabName) {
+        window.switchTab = function(tabName) {
             ['stats', 'skills', 'inventory', 'compendium', 'party', 'npcs'].forEach(t => {
                 const sec = document.getElementById(`tab-${t}`);
                 const btn = document.getElementById(`nav-${t}`);
@@ -2465,19 +2561,19 @@
             });
         }
 
-        function switchCompendiumSubTab(sub) {
+        window.switchCompendiumSubTab = function(sub) {
             const isSkills = sub === 'skills';
             document.getElementById('compendium-skills-view').classList.toggle('hidden', !isSkills);
             document.getElementById('compendium-items-view').classList.toggle('hidden', isSkills);
         }
 
-        function switchCharacter(id) {
+        window.switchCharacter = function(id) {
             activeCharId = id;
             saveState();
             renderAll();
         }
 
-        function setSkillTierFilter(tier) {
+        window.setSkillTierFilter = function(tier) {
             currentSkillTierFilter = tier;
             document.querySelectorAll('.tier-pill').forEach(b => {
                 b.className = b.id === `filter-${tier}` ? 'tier-pill px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-slate-950 shrink-0' : 'tier-pill px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-800 shrink-0';
@@ -2485,39 +2581,45 @@
             renderTensuraSkills();
         }
 
-        function setCompSkillTierFilter(tier) {
+        window.setCompSkillTierFilter = function(tier) {
             currentCompSkillTierFilter = tier;
             renderCompendiumSkills();
         }
 
-        function setCompItemCatFilter(cat) {
+        window.setCompItemCatFilter = function(cat) {
             currentCompItemCatFilter = cat;
             renderCompendiumItems();
         }
 
-        function openCharModal() { document.getElementById('charModal').classList.remove('hidden'); }
-        function closeCharModal() { document.getElementById('charModal').classList.add('hidden'); }
-        function openCampaignModal() { document.getElementById('campaignModal').classList.remove('hidden'); }
-        function closeCampaignModal() { document.getElementById('campaignModal').classList.add('hidden'); }
-        function openSettingsModal() { exportCampaignJson(false); document.getElementById('settingsModal').classList.remove('hidden'); }
-        function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); }
+        window.openCharModal = function() { document.getElementById('charModal').classList.remove('hidden'); }
+        window.closeCharModal = function() { document.getElementById('charModal').classList.add('hidden'); }
+        window.openCampaignModal = function() { document.getElementById('campaignModal').classList.remove('hidden'); }
+        window.closeCampaignModal = function() { document.getElementById('campaignModal').classList.add('hidden'); }
+        window.openSettingsModal = function() { exportCampaignJson(false); document.getElementById('settingsModal').classList.remove('hidden'); }
+        window.closeSettingsModal = function() { document.getElementById('settingsModal').classList.add('hidden'); }
 
-        function joinCampaignRoom() {
+        window.joinCampaignRoom = function() {
             currentRoomCode = (document.getElementById('campaignCodeInput').value || 'JURA-77').trim().toUpperCase();
             document.getElementById('headerRoomCode').textContent = currentRoomCode;
-            closeCampaignModal();
-            loadState();
+            document.getElementById('partyRoomLabel').textContent = currentRoomCode;
+            document.getElementById('compendiumRoomBadge').textContent = `ROOM: ${currentRoomCode}`;
+            document.getElementById('npcRoomBadge').textContent = `ROOM: ${currentRoomCode}`;
+            
+            if (currentUser) {
+                setupCloudListener();
+            }
+            loadLocalStorage();
             renderAll();
         }
 
-        function exportCampaignJson(copyToClipboard = true) {
+        window.exportCampaignJson = function(copyToClipboard = true) {
             const payload = { roomCode: currentRoomCode, activeCharId, characters, compendiumSkills, compendiumItems, campaignNpcs };
             const area = document.getElementById('jsonBackupArea');
             area.value = JSON.stringify(payload, null, 2);
             if (copyToClipboard) { area.select(); document.execCommand('copy'); }
         }
 
-        function importCampaignJson() {
+        window.importCampaignJson = function() {
             try {
                 const raw = document.getElementById('jsonBackupArea').value.trim();
                 const parsed = JSON.parse(raw);
@@ -2531,7 +2633,7 @@
             } catch (e) { alert('Invalid JSON'); }
         }
 
-        function createDefaultCharacter() {
+        window.createDefaultCharacter = function() {
             return {
                 id: 'char_rimuru',
                 isNpc: false,
@@ -2561,7 +2663,7 @@
             };
         }
 
-        function createNewCharacter() {
+        window.createNewCharacter = function() {
             const name = document.getElementById('newCharName').value.trim() || 'New Adventurer';
             const race = document.getElementById('newCharRace').value.trim() || 'Human';
             const role = document.getElementById('newCharRole').value || 'Fighter';
@@ -2605,7 +2707,7 @@
             renderAll();
         }
 
-        function deleteActiveCharacter() {
+        window.deleteActiveCharacter = function() {
             if (characters.length <= 1) {
                 showSageNotice('Warning', 'Cannot delete the last character in the party.');
                 return;
@@ -2630,12 +2732,14 @@
         let currentNpcFilter = 'ALL';
 
         function getStorageKey() { return `tensura_hud_state_${currentRoomCode}`; }
-        function saveState() {
+        
+        window.saveLocalStorage = function() {
             try {
                 localStorage.setItem(getStorageKey(), JSON.stringify({ roomCode: currentRoomCode, activeCharId, characters, compendiumSkills, compendiumItems, campaignNpcs }));
             } catch (e) {}
         }
-        function loadState() {
+
+        window.loadLocalStorage = function() {
             try {
                 const raw = localStorage.getItem(getStorageKey());
                 if (raw) {
@@ -2649,10 +2753,17 @@
             } catch (e) {}
         }
 
+        window.saveState = function() {
+            saveLocalStorage();
+            saveCloudState();
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
-            loadState();
+            loadLocalStorage();
+            initFirebase();
             renderAll();
         });
     </script>
 </body>
 </html>
+```
