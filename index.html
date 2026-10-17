@@ -96,7 +96,7 @@
                     <div class="flex items-center space-x-1.5">
                         <h1 class="text-sm font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-sky-400">RAPHAEL HUD</h1>
                         <button onclick="openCampaignModal()" class="flex items-center space-x-1 text-[10px] font-mono bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded-md border border-cyan-500/50 transition" title="Change Campaign Join Code">
-                            <span id="cloudStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span id="cloudStatusDot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                             <span>ROOM:</span>
                             <strong id="headerRoomCode" class="text-white">JURA-77</strong>
                             <i class="fa-solid fa-pen-to-square text-[9px] ml-0.5 text-cyan-400"></i>
@@ -1137,7 +1137,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'tensura-campaign-default';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
